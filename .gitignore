@@ -1,0 +1,49 @@
+# Ignore Visual Studio temporary files, build results, and
+# common settings files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Ignore build output directories
+bin/
+obj/
+out/
+
+# Ignore packages directory
+packages/
+*.nupkg
+*.snupkg
+
+# Ignore logs and temporary files
+*.log
+*.tlog
+*.tmp
+*.cache
+
+# Ignore compiled files
+*.dll
+*.exe
+*.pdb
+
+# Ignore coverage files
+*.coverage
+*.coveragexml
+
+# Ignore configuration files
+appsettings.json
+appsettings.*.json
+
+# Ignore IDE-specific files
+.vscode/
+.vs/
+.idea/
+# Rider-specific
+.idea/
+*.sln.iml
+
+# Ignore generated files
+wwwroot/
+
+# Miscellaneous ignores
+endpoints.md
