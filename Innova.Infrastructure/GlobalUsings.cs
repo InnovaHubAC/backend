@@ -1,0 +1,10 @@
+global using Innova.Domain.Interfaces;
+global using Innova.Domain.Specifications;
+global using Innova.Infrastructure.Data.Context;
+global using Innova.Infrastructure.Specifications;
+global using Microsoft.EntityFrameworkCore;
+global using Innova.Domain.Common;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Configuration;
+global using Microsoft.AspNetCore.Identity;
+global using Microsoft.AspNetCore.Identity.EntityFrameworkCore;

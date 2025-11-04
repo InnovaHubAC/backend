@@ -1,5 +1,3 @@
-using Serilog;
-
 namespace Innova.API.Extensions;
 
 public static class HostExtensions

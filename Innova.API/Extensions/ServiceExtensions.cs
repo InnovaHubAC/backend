@@ -1,5 +1,3 @@
-using Innova.Application.MappingConfig;
-
 namespace Innova.API.Extensions;
 
 public static class ServiceExtensions

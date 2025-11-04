@@ -1,7 +1,3 @@
-using Innova.Domain.Entities;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
-
 namespace Innova.Infrastructure.Data.Context;
 
 public class ApplicationDbContext : IdentityDbContext<AppUser>

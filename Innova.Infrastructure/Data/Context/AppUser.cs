@@ -1,6 +1,4 @@
-using Microsoft.AspNetCore.Identity;
-
-namespace Innova.Domain.Entities;
+namespace Innova.Infrastructure.Data.Context;
 
 public class AppUser : IdentityUser
 {
