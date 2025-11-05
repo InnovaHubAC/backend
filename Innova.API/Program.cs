@@ -19,6 +19,8 @@ builder.Services.ConfigureCors();
 
 builder.Services.ConfigureServices();
 
+builder.Services.AddJwtAuthentication(builder.Configuration);
+
 var app = builder.Build();
 
 // Global exception handling middleware

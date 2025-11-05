@@ -1,3 +1,6 @@
+using Innova.Application.Services.Implementations;
+using Innova.Application.Services.Interfaces;
+
 namespace Innova.API.Extensions;
 
 public static class ServiceExtensions
@@ -19,5 +22,6 @@ public static class ServiceExtensions
     {
         // Add Mapster configuration
         // services.AddMappings(); to be reviewed
+        services.AddScoped<IAuthService, AuthService>();
     }
 }

@@ -1,3 +1,5 @@
+using Innova.Infrastructure.Services;
+
 namespace Innova.Infrastructure.Extensions;
 
 public static class InfrastructureExtensions
@@ -27,5 +29,8 @@ public static class InfrastructureExtensions
         })
         .AddRoles<IdentityRole>()
         .AddEntityFrameworkStores<ApplicationDbContext>();
+
+        services.AddScoped<IIdentityService, IdentityService>();
+        services.AddScoped<IJwtTokenService, JwtTokenService>();
     }
 }
