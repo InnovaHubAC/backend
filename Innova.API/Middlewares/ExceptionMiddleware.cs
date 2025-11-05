@@ -1,7 +1,3 @@
-using System.Net;
-using System.Text.Json;
-using Innova.Application.DTOs;
-
 namespace Innova.API.Middlewares;
 
 public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger, IHostEnvironment env)
