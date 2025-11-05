@@ -27,5 +27,8 @@ public static class InfrastructureExtensions
         })
         .AddRoles<IdentityRole>()
         .AddEntityFrameworkStores<ApplicationDbContext>();
+
+        // Register Repository and UnitOfWork
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
     }
 }
