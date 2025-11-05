@@ -3,10 +3,14 @@ namespace Innova.Infrastructure.Repositories;
 public class UnitOfWork : IUnitOfWork
 {
     private readonly ApplicationDbContext _context;
+    private readonly Lazy<IDepartmentRepository> _departmentRepository;
+
+    public IDepartmentRepository DepartmentRepository => _departmentRepository.Value;
 
     public UnitOfWork(ApplicationDbContext context)
     {
         _context = context;
+        _departmentRepository = new Lazy<IDepartmentRepository>(() => new DepartmentRepository(_context));
     }
 
     public async Task<int> CompleteAsync()

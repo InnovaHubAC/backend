@@ -12,6 +12,8 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
         base.OnModelCreating(builder);
 
         // Apply entity configurations
-        // builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
     }
+
+    public DbSet<Department> Departments { get; set; }
 }

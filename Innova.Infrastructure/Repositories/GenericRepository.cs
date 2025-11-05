@@ -40,17 +40,15 @@ public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
         return entity;
     }
 
-    public async Task UpdateAsync(T entity)
+    public void Update(T entity)
     {
         _context.Set<T>().Attach(entity);
         _context.Entry(entity).State = EntityState.Modified;
-        await Task.CompletedTask;
     }
 
     public async Task DeleteAsync(T entity)
     {
-        _context.Set<T>().Remove(entity);
-        await _context.SaveChangesAsync();
+        await _context.Set<T>().Where(x => x.Id == entity.Id).ExecuteDeleteAsync();
     }
 
     private IQueryable<T> ApplySpecification(ISpecification<T> spec)
