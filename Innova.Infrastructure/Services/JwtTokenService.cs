@@ -93,5 +93,35 @@ namespace Innova.Infrastructure.Services
             await _userManager.UpdateAsync(user!);
             return (newRefreshToken.Token, newRefreshToken.ExpiresOn);
         }
+
+        public async Task<bool> ValidateRefreshTokenAsync(string refreshToken)
+        {
+            return await _userManager.Users
+                 .AnyAsync(u => u.RefreshTokens
+                     .Any(t => t.Token == refreshToken &&
+                               t.RevokedOn == null &&
+                               t.ExpiresOn > DateTime.UtcNow));
+        }
+
+        public async Task<string> GetUserUserNameFromRefreshTokenAsync(string token)
+        {
+            var userName = await _userManager.Users
+                 .Where(u => u.RefreshTokens!.Any(x => x.Token == token && x.ExpiresOn > DateTime.UtcNow && x.RevokedOn == null))
+                 .Select(u => u.UserName)
+                 .FirstOrDefaultAsync();
+            return userName!;
+        }
+
+        public async Task<DateTime> GetRefreshTokenExpirationDate(string token)
+        {
+            var refreshToken = await _userManager.Users
+             .SelectMany(u => u.RefreshTokens)
+             .Where(rt => rt.Token == token && rt.RevokedOn == null && rt.ExpiresOn > DateTime.UtcNow)
+             .Select(rt => new { rt.ExpiresOn })
+             .FirstOrDefaultAsync();
+
+            return refreshToken!.ExpiresOn;
+        }
+
     }
 }

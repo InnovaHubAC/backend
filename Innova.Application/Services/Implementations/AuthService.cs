@@ -37,7 +37,7 @@ namespace Innova.Application.Services.Implementations
         {
             var validator = new RegisterDtoValidator();
             var validationResult = validator.Validate(registerDto);
-            
+
             if (!validationResult.IsValid)
             {
                 return new AuthResponseDto
@@ -69,11 +69,11 @@ namespace Innova.Application.Services.Implementations
         private async Task<AuthResponseDto?> CreateUserWithRoleAsync(RegisterDto registerDto)
         {
             var userCreationErrors = await _identityService.CreateUserAsync(
-                registerDto.FirstName, 
-                registerDto.LastName, 
-                registerDto.Email, 
-                registerDto.DateOfBirth, 
-                registerDto.UserName, 
+                registerDto.FirstName,
+                registerDto.LastName,
+                registerDto.Email,
+                registerDto.DateOfBirth,
+                registerDto.UserName,
                 registerDto.Password);
 
             if (userCreationErrors.Any())
@@ -102,7 +102,7 @@ namespace Innova.Application.Services.Implementations
         {
             var jwtToken = await _jwtTokenService.CreateTokenAsync(userName);
             var refreshTokenResult = await _jwtTokenService.CreateRefreshTokenAsync(userName);
-            
+
             var (refreshToken, refreshTokenExpiry) = refreshTokenResult.Value;
 
             return new AuthResponseDto
@@ -144,6 +144,34 @@ namespace Innova.Application.Services.Implementations
                 RefreshTokenExpiresOn = refreshToken?.Item2 ?? DateTime.UtcNow.AddDays(7),
                 UserName = userName,
                 Email = loginDto.Email,
+            };
+        }
+
+        public async Task<AuthResponseDto> RefreshToken(string token)
+        {
+            if (!await _jwtTokenService.ValidateRefreshTokenAsync(token))
+            {
+                return new AuthResponseDto
+                {
+                    Message = "Invalid refresh token.",
+                };
+            }
+            return await GenerateAuthResponseFromRefreshTokenAsync(token);
+        }
+
+        private async Task<AuthResponseDto> GenerateAuthResponseFromRefreshTokenAsync(string token)
+        {
+            var userName = await _jwtTokenService.GetUserUserNameFromRefreshTokenAsync(token);
+            var newJwtToken = await _jwtTokenService.CreateTokenAsync(userName);
+            var refreshTokenExperationDate = await _jwtTokenService.GetRefreshTokenExpirationDate(token);
+            return new AuthResponseDto
+            {
+                Message = "Token refreshed successfully.",
+                IsAuthenticated = true,
+                Token = newJwtToken,
+                RefreshToken = token,
+                RefreshTokenExpiresOn = refreshTokenExperationDate,
+                UserName = userName,
             };
         }
     }

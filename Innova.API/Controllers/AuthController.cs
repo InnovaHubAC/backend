@@ -57,5 +57,23 @@ namespace Innova.API.Controllers
             SetTokenCookie(result.RefreshToken!, result.RefreshTokenExpiresOn);
             return Ok(ApiResponse<AuthResponseDto>.Success(result));
         }
+
+        [HttpGet]
+        [Route("RefreshToken")]
+        [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse<AuthResponseDto>>> RefreshToken()
+        {
+            if (!Request.Cookies.TryGetValue("InnovaRefreshToken", out var refreshToken))
+            {
+                return BadRequest(ApiResponse<AuthResponseDto>.Fail(400, "Refresh token is missing."));
+            }
+            var result = await _authService.RefreshToken(refreshToken);
+            if (!result.IsAuthenticated)
+                return BadRequest(ApiResponse<AuthResponseDto>.Fail(400, result.Message, result.Errors));
+            SetTokenCookie(result.RefreshToken!, result.RefreshTokenExpiresOn);
+            return Ok(ApiResponse<AuthResponseDto>.Success(result));
+        }
     }
 }
