@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Options;
+﻿using Innova.Infrastructure.Data.Context;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -32,7 +33,7 @@ namespace Innova.Infrastructure.Services
             var claims = new List<Claim>()
             {
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(JwtRegisteredClaimNames.Sub, 15.ToString()),
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id),
                 new Claim(JwtRegisteredClaimNames.UniqueName, user.UserName!),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email!),
             }
@@ -71,6 +72,26 @@ namespace Innova.Infrastructure.Services
             user.RefreshTokens!.Add(refreshToken);
             await _userManager.UpdateAsync(user);
             return (refreshToken.Token, refreshToken.ExpiresOn);
+        }
+
+        public async Task<(string, DateTime)?> GetActiveRefreshToken(string email)
+        {
+            var user = await _userManager.Users
+                .Include(u => u.RefreshTokens)
+                .FirstOrDefaultAsync(u => u.Email == email);
+
+            // check if user has a refresh token
+            var activeRefreshToken = user?.RefreshTokens
+                ?.FirstOrDefault(rt => rt.IsActive && rt.RevokedOn == null);
+
+            if (activeRefreshToken is not null)
+                return (activeRefreshToken.Token, activeRefreshToken.ExpiresOn);
+            // at this point, the user has no active refresh token
+            var newRefreshToken = GenerateRefreshToken();
+            // save the new refresh token
+            user?.RefreshTokens?.Add(newRefreshToken);
+            await _userManager.UpdateAsync(user!);
+            return (newRefreshToken.Token, newRefreshToken.ExpiresOn);
         }
     }
 }

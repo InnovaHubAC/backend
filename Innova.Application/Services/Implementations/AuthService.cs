@@ -116,5 +116,35 @@ namespace Innova.Application.Services.Implementations
                 Email = email,
             };
         }
+
+        public async Task<AuthResponseDto> LoginAsync(LoginDto loginDto)
+        {
+            // Validate user credentials
+            if (!await _identityService.ValidateUserCredentialsAsync(loginDto.Email, loginDto.Password))
+            {
+                return new AuthResponseDto
+                {
+                    Message = "Invalid email or password.",
+                };
+            }
+            return await CreateAuthResponseForLoginAsync(loginDto);
+        }
+
+        private async Task<AuthResponseDto> CreateAuthResponseForLoginAsync(LoginDto loginDto)
+        {
+            var userName = await _identityService.GetUserNameByEmailAsync(loginDto.Email);
+            var jwtToken = await _jwtTokenService.CreateTokenAsync(userName);
+            var refreshToken = await _jwtTokenService.GetActiveRefreshToken(loginDto.Email);
+            return new AuthResponseDto
+            {
+                Message = "Login successful.",
+                IsAuthenticated = true,
+                Token = jwtToken,
+                RefreshToken = refreshToken?.Item1,
+                RefreshTokenExpiresOn = refreshToken?.Item2 ?? DateTime.UtcNow.AddDays(7),
+                UserName = userName,
+                Email = loginDto.Email,
+            };
+        }
     }
 }

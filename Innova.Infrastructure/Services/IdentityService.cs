@@ -122,5 +122,21 @@ public class IdentityService : IIdentityService
         }
         return claims;
     }
+
+    public async Task<bool> ValidateUserCredentialsAsync(string email, string password)
+    {
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user is null)
+            return false;
+        return await _userManager.CheckPasswordAsync(user, password);
+    }
+
+    public Task<string> GetUserNameByEmailAsync(string email)
+    {
+        return _userManager.Users
+            .Where(u => u.Email == email)
+            .Select(u => u.UserName!)
+            .FirstOrDefaultAsync()!;
+    }
 }
 

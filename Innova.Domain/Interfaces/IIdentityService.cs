@@ -11,5 +11,7 @@ namespace Innova.Domain.Interfaces
         Task<IList<string>> GetRolesAsync(string userName);
         Task<IList<Claim>> GetClaimsAsync(string userName);
         Task<IList<Claim>> GetAllUserClaimsAsync(string userName);
+        Task<bool> ValidateUserCredentialsAsync(string email, string password);
+        Task<string> GetUserNameByEmailAsync(string email);
     }
 }

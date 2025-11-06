@@ -24,13 +24,14 @@ namespace Innova.API.Controllers
                 HttpOnly = true,
                 Expires = expirationDate.ToLocalTime()
             };
-            Response.Cookies.Append("RefreshToken", token, cookieOptions);
+            Response.Cookies.Append("InnovaRefreshToken", token, cookieOptions);
         }
 
         [HttpPost]
         [Route("Register")]
         [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Register(RegisterDto registerDto)
         {
             var result = await _authService.RegisterAsync(registerDto);
@@ -41,6 +42,20 @@ namespace Innova.API.Controllers
             SetTokenCookie(result.RefreshToken!, result.RefreshTokenExpiresOn);
             return Ok(ApiResponse<AuthResponseDto>.Success(result));
 
+        }
+
+        [HttpPost]
+        [Route("Login")]
+        [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Login(LoginDto loginDto)
+        {
+            var result = await _authService.LoginAsync(loginDto);
+            if (!result.IsAuthenticated)
+                return BadRequest(ApiResponse<AuthResponseDto>.Fail(400, result.Message, result.Errors));
+            SetTokenCookie(result.RefreshToken!, result.RefreshTokenExpiresOn);
+            return Ok(ApiResponse<AuthResponseDto>.Success(result));
         }
     }
 }

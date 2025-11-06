@@ -4,5 +4,6 @@
     {
         Task<string> CreateTokenAsync(string userName);
         Task<(string, DateTime)?> CreateRefreshTokenAsync(string userName);
+        Task<(string, DateTime)?> GetActiveRefreshToken(string email);
     }
 }
