@@ -25,7 +25,7 @@ public class Departments : ControllerBase
     public async Task<ActionResult<ApiResponse<DepartmentDto>>> GetDepartmentById(int id)
     {
         var department = await _departmentService.GetDepartmentByIdAsync(id);
-        
+
         if (department == null)
         {
             return NotFound(ApiResponse<DepartmentDto>.Fail(404, $"Department with ID {id} not found"));
@@ -39,18 +39,11 @@ public class Departments : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<DepartmentDto>), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<ApiResponse<DepartmentDto>>> CreateDepartment([FromBody] CreateDepartmentDto createDto)
     {
-        try
-        {
-            var department = await _departmentService.CreateDepartmentAsync(createDto);
-            return CreatedAtAction(
-                nameof(GetDepartmentById), 
-                new { id = department.Id }, 
-                new ApiResponse<DepartmentDto>(201, department, "Department created successfully"));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ApiResponse<DepartmentDto>.Fail(400, ex.Message));
-        }
+        var department = await _departmentService.CreateDepartmentAsync(createDto);
+        return CreatedAtAction(
+            nameof(GetDepartmentById),
+            new { id = department.Id },
+            new ApiResponse<DepartmentDto>(201, department, "Department created successfully"));
     }
 
     [HttpPut("{id}")]
@@ -59,21 +52,16 @@ public class Departments : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<DepartmentDto>), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<ApiResponse<DepartmentDto>>> UpdateDepartment(int id, [FromBody] UpdateDepartmentDto updateDto)
     {
-        try
-        {
-            var department = await _departmentService.UpdateDepartmentAsync(id, updateDto);
-            
-            if (department == null)
-            {
-                return NotFound(ApiResponse<DepartmentDto>.Fail(404, $"Department with ID {id} not found"));
-            }
 
-            return Ok(new ApiResponse<DepartmentDto>(200, department, "Department updated successfully"));
-        }
-        catch (InvalidOperationException ex)
+        var department = await _departmentService.UpdateDepartmentAsync(id, updateDto);
+
+        if (department == null)
         {
-            return BadRequest(ApiResponse<DepartmentDto>.Fail(400, ex.Message));
+            return NotFound(ApiResponse<DepartmentDto>.Fail(404, $"Department with ID {id} not found"));
         }
+
+        return Ok(new ApiResponse<DepartmentDto>(200, department, "Department updated successfully"));
+
     }
 
     [HttpDelete("{id}")]
@@ -82,7 +70,7 @@ public class Departments : ControllerBase
     public async Task<ActionResult<ApiResponse<bool>>> DeleteDepartment(int id)
     {
         var result = await _departmentService.DeleteDepartmentAsync(id);
-        
+
         if (!result)
         {
             return NotFound(ApiResponse<bool>.Fail(404, $"Department with ID {id} not found"));
