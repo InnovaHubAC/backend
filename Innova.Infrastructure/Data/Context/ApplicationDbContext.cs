@@ -12,7 +12,9 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
         base.OnModelCreating(builder);
 
         // Apply entity configurations
-        // builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
     }
+    
     public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
+    public DbSet<Department> Departments { get; set; }
 }

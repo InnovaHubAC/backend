@@ -32,5 +32,7 @@ public static class InfrastructureExtensions
 
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
+        // Register Repository and UnitOfWork
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
     }
 }

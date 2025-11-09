@@ -21,7 +21,8 @@ public static class ServiceExtensions
     public static void ConfigureServices(this IServiceCollection services)
     {
         // Add Mapster configuration
-        // services.AddMappings(); to be reviewed
+        // services.AddMappings(); to be reviewe
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IDepartmentService, DepartmentService>();
     }
 }
