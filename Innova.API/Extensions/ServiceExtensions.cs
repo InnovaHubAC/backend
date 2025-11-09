@@ -19,5 +19,8 @@ public static class ServiceExtensions
     {
         // Add Mapster configuration
         // services.AddMappings(); to be reviewed
+
+        // Register Application Services
+        services.AddScoped<IDepartmentService, DepartmentService>();
     }
 }
