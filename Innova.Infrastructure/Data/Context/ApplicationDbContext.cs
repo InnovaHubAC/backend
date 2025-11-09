@@ -14,6 +14,7 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
         // Apply entity configurations
         builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
     }
-
+    
+    public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
     public DbSet<Department> Departments { get; set; }
 }

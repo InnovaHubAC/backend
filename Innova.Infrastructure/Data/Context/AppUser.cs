@@ -7,4 +7,6 @@ public class AppUser : IdentityUser
     public DateTime? DateOfBirth { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
+    public virtual List<RefreshToken>? RefreshTokens { get; set; } = new();
+
 }
