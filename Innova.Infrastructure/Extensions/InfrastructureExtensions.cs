@@ -1,4 +1,3 @@
-using Innova.Infrastructure.Services;
 
 namespace Innova.Infrastructure.Extensions;
 
@@ -32,7 +31,10 @@ public static class InfrastructureExtensions
 
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
-        // Register Repository and UnitOfWork
+        services.AddScoped<IEmailService, EmailService>();
+
+        services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
+        
         services.AddScoped<IUnitOfWork, UnitOfWork>();
     }
 }

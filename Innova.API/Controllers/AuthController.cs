@@ -75,5 +75,20 @@ namespace Innova.API.Controllers
             SetTokenCookie(result.RefreshToken!, result.RefreshTokenExpiresOn);
             return Ok(ApiResponse<AuthResponseDto>.Success(result));
         }
+
+        [HttpPost]
+        [Route("verify-email")]
+        [ProducesResponseType(typeof(ApiResponse<VerifyEmailResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<VerifyEmailResponseDto>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<VerifyEmailResponseDto>), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse<VerifyEmailResponseDto>>> VerifyEmail(VerifyEmailDto verifyEmailDto)
+        {
+            var result = await _authService.VerifyEmailAsync(verifyEmailDto);
+
+            if (!result.IsVerified)
+                return BadRequest(ApiResponse<VerifyEmailResponseDto>.Fail(400, result.Message, result.Errors));
+
+            return Ok(ApiResponse<VerifyEmailResponseDto>.Success(result));
+        }
     }
 }
