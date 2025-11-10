@@ -8,12 +8,14 @@ namespace Innova.Application.Services.Implementations
     {
         private readonly IIdentityService _identityService;
         private readonly IJwtTokenService _jwtTokenService;
+        private readonly IEmailService _emailService;
         private const string DefaultUserRole = "User";
 
-        public AuthService(IIdentityService identityService, IJwtTokenService jwtTokenService)
+        public AuthService(IIdentityService identityService, IJwtTokenService jwtTokenService, IEmailService emailService)
         {
             _identityService = identityService;
             _jwtTokenService = jwtTokenService;
+            _emailService = emailService;
         }
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto)
@@ -29,6 +31,9 @@ namespace Innova.Application.Services.Implementations
             {
                 return userCreationError;
             }
+
+            // Send email confirmation
+            await SendEmailConfirmationAsync(registerDto.Email, registerDto.UserName);
 
             return await GenerateAuthResponseAsync(registerDto.UserName, registerDto.Email);
         }
@@ -98,6 +103,15 @@ namespace Innova.Application.Services.Implementations
             return null;
         }
 
+        private async Task SendEmailConfirmationAsync(string email, string userName)
+        {
+            var confirmationToken = await _identityService.GenerateEmailConfirmationTokenAsync(email);
+            if (!string.IsNullOrEmpty(confirmationToken))
+            {
+                await _emailService.SendEmailConfirmationAsync(email, userName, confirmationToken);
+            }
+        }
+
         private async Task<AuthResponseDto> GenerateAuthResponseAsync(string userName, string email)
         {
             var jwtToken = await _jwtTokenService.CreateTokenAsync(userName);
@@ -107,7 +121,7 @@ namespace Innova.Application.Services.Implementations
 
             return new AuthResponseDto
             {
-                Message = "Registration successful.",
+                Message = "Registration successful. Please check your email to verify your account.",
                 IsAuthenticated = true,
                 Token = jwtToken,
                 RefreshToken = refreshToken,
@@ -127,6 +141,15 @@ namespace Innova.Application.Services.Implementations
                     Message = "Invalid email or password.",
                 };
             }
+
+            if(!await _identityService.IsEmailConfirmedAsync(loginDto.Email))
+            {
+                return new AuthResponseDto
+                {
+                    Message = "Email is not confirmed. Please verify your email before logging in.",
+                };
+            }
+
             return await CreateAuthResponseForLoginAsync(loginDto);
         }
 
@@ -172,6 +195,39 @@ namespace Innova.Application.Services.Implementations
                 RefreshToken = token,
                 RefreshTokenExpiresOn = refreshTokenExperationDate,
                 UserName = userName,
+            };
+        }
+
+        public async Task<VerifyEmailResponseDto> VerifyEmailAsync(VerifyEmailDto verifyEmailDto)
+        {
+            var validator = new VerifyEmailDtoValidator();
+            var validationResult = validator.Validate(verifyEmailDto);
+
+            if (!validationResult.IsValid)
+            {
+                return new VerifyEmailResponseDto
+                {
+                    IsVerified = false,
+                    Message = "Validation failed.",
+                    Errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList(),
+                };
+            }
+
+            var isConfirmed = await _identityService.ConfirmEmailAsync(verifyEmailDto.Email, verifyEmailDto.Token);
+
+            if (!isConfirmed)
+            {
+                return new VerifyEmailResponseDto
+                {
+                    IsVerified = false,
+                    Message = "Email verification failed. Invalid token or email.",
+                };
+            }
+
+            return new VerifyEmailResponseDto
+            {
+                IsVerified = true,
+                Message = "Email verified successfully.",
             };
         }
     }

@@ -13,5 +13,8 @@ namespace Innova.Domain.Interfaces
         Task<IList<Claim>> GetAllUserClaimsAsync(string userName);
         Task<bool> ValidateUserCredentialsAsync(string email, string password);
         Task<string> GetUserNameByEmailAsync(string email);
+        Task<string> GenerateEmailConfirmationTokenAsync(string email);
+        Task<bool> ConfirmEmailAsync(string email, string token);
+        Task<bool> IsEmailConfirmedAsync(string email);
     }
 }

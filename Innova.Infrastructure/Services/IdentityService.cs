@@ -138,5 +138,33 @@ public class IdentityService : IIdentityService
             .Select(u => u.UserName!)
             .FirstOrDefaultAsync()!;
     }
+
+    public async Task<string> GenerateEmailConfirmationTokenAsync(string email)
+    {
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user == null)
+            return string.Empty;
+
+        return await _userManager.GenerateEmailConfirmationTokenAsync(user);
+    }
+
+    public async Task<bool> ConfirmEmailAsync(string email, string token)
+    {
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user == null)
+            return false;
+
+        var result = await _userManager.ConfirmEmailAsync(user, token);
+        return result.Succeeded;
+    }
+
+    public async Task<bool> IsEmailConfirmedAsync(string email)
+    {
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user == null)
+            return false;
+
+        return await _userManager.IsEmailConfirmedAsync(user);
+    }
 }
 
