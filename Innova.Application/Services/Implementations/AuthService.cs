@@ -141,6 +141,15 @@ namespace Innova.Application.Services.Implementations
                     Message = "Invalid email or password.",
                 };
             }
+
+            if(!await _identityService.IsEmailConfirmedAsync(loginDto.Email))
+            {
+                return new AuthResponseDto
+                {
+                    Message = "Email is not confirmed. Please verify your email before logging in.",
+                };
+            }
+
             return await CreateAuthResponseForLoginAsync(loginDto);
         }
 
