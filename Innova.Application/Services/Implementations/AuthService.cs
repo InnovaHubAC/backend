@@ -108,7 +108,7 @@ namespace Innova.Application.Services.Implementations
             var confirmationToken = await _identityService.GenerateEmailConfirmationTokenAsync(email);
             if (!string.IsNullOrEmpty(confirmationToken))
             {
-                await _emailService.SendEmailConfirmationAsync(email, userName, confirmationToken);
+                await _emailService.SendRegisterationEmailConfirmationAsync(email, userName, confirmationToken);
             }
         }
 
@@ -228,6 +228,86 @@ namespace Innova.Application.Services.Implementations
             {
                 IsVerified = true,
                 Message = "Email verified successfully.",
+            };
+        }
+
+        public async Task<PasswordResetResponseDto> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto)
+        {
+            var validator = new ForgotPasswordDtoValidator();
+            var validationResult = validator.Validate(forgotPasswordDto);
+
+            if (!validationResult.IsValid)
+            {
+                return new PasswordResetResponseDto
+                {
+                    IsSuccess = false,
+                    Message = "Validation failed.",
+                    Errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList(),
+                };
+            }
+
+            if (!await _identityService.EmailExistsAsync(forgotPasswordDto.Email))
+            {
+                return new PasswordResetResponseDto
+                {
+                    IsSuccess = true,
+                    Message = "If your email exists in our system, you will receive a password reset link shortly.",
+                };
+            }
+
+            var resetToken = await _identityService.GeneratePasswordResetTokenAsync(forgotPasswordDto.Email);
+            if (string.IsNullOrEmpty(resetToken))
+            {
+                return new PasswordResetResponseDto
+                {
+                    IsSuccess = false,
+                    Message = "Failed to generate password reset token.",
+                };
+            }
+
+            var userName = await _identityService.GetUserNameByEmailAsync(forgotPasswordDto.Email);
+            await _emailService.SendPasswordResetEmailAsync(forgotPasswordDto.Email, userName, resetToken);
+
+            return new PasswordResetResponseDto
+            {
+                IsSuccess = true,
+                Message = "If your email exists in our system, you will receive a password reset link shortly.",
+            };
+        }
+
+        public async Task<PasswordResetResponseDto> ResetPasswordAsync(ResetPasswordDto resetPasswordDto)
+        {
+            var validator = new ResetPasswordDtoValidator();
+            var validationResult = validator.Validate(resetPasswordDto);
+
+            if (!validationResult.IsValid)
+            {
+                return new PasswordResetResponseDto
+                {
+                    IsSuccess = false,
+                    Message = "Validation failed.",
+                    Errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList(),
+                };
+            }
+
+            var isReset = await _identityService.ResetPasswordAsync(
+                resetPasswordDto.Email,
+                resetPasswordDto.Token,
+                resetPasswordDto.NewPassword);
+
+            if (!isReset)
+            {
+                return new PasswordResetResponseDto
+                {
+                    IsSuccess = false,
+                    Message = "Password reset failed. Invalid token or email.",
+                };
+            }
+
+            return new PasswordResetResponseDto
+            {
+                IsSuccess = true,
+                Message = "Password reset successfully. You can now login with your new password.",
             };
         }
     }

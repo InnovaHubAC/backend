@@ -9,5 +9,7 @@ namespace Innova.Application.Services.Interfaces
         Task<AuthResponseDto> LoginAsync(LoginDto loginDto);
         Task<AuthResponseDto> RefreshToken(string token);
         Task<VerifyEmailResponseDto> VerifyEmailAsync(VerifyEmailDto verifyEmailDto);
+        Task<PasswordResetResponseDto> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto);
+        Task<PasswordResetResponseDto> ResetPasswordAsync(ResetPasswordDto resetPasswordDto);
     }
 }

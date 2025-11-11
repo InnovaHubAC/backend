@@ -90,5 +90,35 @@ namespace Innova.API.Controllers
 
             return Ok(ApiResponse<VerifyEmailResponseDto>.Success(result));
         }
+
+        [HttpPost]
+        [Route("forgot-password")]
+        [ProducesResponseType(typeof(ApiResponse<PasswordResetResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<PasswordResetResponseDto>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<PasswordResetResponseDto>), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse<PasswordResetResponseDto>>> ForgotPassword(ForgotPasswordDto forgotPasswordDto)
+        {
+            var result = await _authService.ForgotPasswordAsync(forgotPasswordDto);
+
+            if (!result.IsSuccess)
+                return BadRequest(ApiResponse<PasswordResetResponseDto>.Fail(400, result.Message, result.Errors));
+
+            return Ok(ApiResponse<PasswordResetResponseDto>.Success(result));
+        }
+
+        [HttpPost]
+        [Route("reset-password")]
+        [ProducesResponseType(typeof(ApiResponse<PasswordResetResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<PasswordResetResponseDto>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<PasswordResetResponseDto>), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse<PasswordResetResponseDto>>> ResetPassword(ResetPasswordDto resetPasswordDto)
+        {
+            var result = await _authService.ResetPasswordAsync(resetPasswordDto);
+
+            if (!result.IsSuccess)
+                return BadRequest(ApiResponse<PasswordResetResponseDto>.Fail(400, result.Message, result.Errors));
+
+            return Ok(ApiResponse<PasswordResetResponseDto>.Success(result));
+        }
     }
 }

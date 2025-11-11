@@ -2,7 +2,7 @@ namespace Innova.Application.Services.Implementations;
 
 public class DepartmentService : IDepartmentService
 {
-    private readonly IGenericRepository<Department> _departmentRepository;
+    private readonly IDepartmentRepository _departmentRepository;
     private readonly IUnitOfWork _unitOfWork;
 
     public DepartmentService(
