@@ -190,14 +190,13 @@ public class IdentityService : IIdentityService
     {
         var errors = new List<string>();
         
-        // Create the user
         var user = new AppUser
         {
             Email = email,
             UserName = email, // Use email as username for external logins
             FirstName = firstName,
             LastName = lastName,
-            EmailConfirmed = true, // External providers verify the email
+            EmailConfirmed = true,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -208,13 +207,11 @@ public class IdentityService : IIdentityService
             return (false, errors);
         }
 
-        // Add external login info
         var info = new UserLoginInfo(provider, providerKey, provider);
         var addLoginResult = await _userManager.AddLoginAsync(user, info);
         if (!addLoginResult.Succeeded)
         {
             errors.AddRange(addLoginResult.Errors.Select(e => e.Description));
-            // Cleanup: remove the user if adding login fails
             await _userManager.DeleteAsync(user);
             return (false, errors);
         }
