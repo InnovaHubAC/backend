@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace Innova.API.Extensions
 {
@@ -9,17 +10,26 @@ namespace Innova.API.Extensions
     {
         public static void AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
         {
-            var JwtOptions = configuration.GetSection("Jwt");
-            services.Configure<JwtSettings>(JwtOptions);
+            var jwtOptions = configuration.GetSection("Jwt");
+            services.Configure<JwtSettings>(jwtOptions);
+            var jwt = jwtOptions.Get<JwtSettings>();
 
-            var Jwt = configuration.GetSection("Jwt").Get<JwtSettings>();
+            var googleOptions = configuration.GetSection("Authentication:Google");
+            services.Configure<GoogleAuthSettings>(googleOptions);
+            var googleSettings = googleOptions.Get<GoogleAuthSettings>();
 
             services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            })
-                .AddJwtBearer(options =>
+            }).AddCookie().AddGoogle(options =>
+            {
+                options.ClientId = googleSettings!.ClientId;
+                options.ClientSecret = googleSettings!.ClientSecret;
+                options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+            }
+            )
+            .AddJwtBearer(options =>
                 {
                     options.RequireHttpsMetadata = false;
                     options.SaveToken = false;
@@ -30,9 +40,9 @@ namespace Innova.API.Extensions
                         ValidateLifetime = true,
                         ValidateIssuerSigningKey = true,
 
-                        ValidIssuer = Jwt.Issuer,
-                        ValidAudience = Jwt.Audience,
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Jwt.Key)),
+                        ValidIssuer = jwt.Issuer,
+                        ValidAudience = jwt.Audience,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
                         ClockSkew = TimeSpan.Zero
                     };
                 });

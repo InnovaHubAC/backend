@@ -1,4 +1,6 @@
 ﻿using Innova.Application.DTOs.Auth;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Innova.Domain.Interfaces;
 
 namespace Innova.API.Controllers
@@ -110,6 +112,45 @@ namespace Innova.API.Controllers
                 return BadRequest(ApiResponse<PasswordResetResponseDto>.Fail(400, result.Message, result.Errors));
 
             return Ok(ApiResponse<PasswordResetResponseDto>.Success(result));
+        }
+
+        [HttpGet]
+        [Route("google-login")]
+        [ProducesResponseType(StatusCodes.Status302Found)]
+        public IActionResult GoogleLogin([FromQuery] string? returnUrl = null)
+        {
+            var redirectUrl = Url.Action(nameof(GoogleCallback), "Auth", new { returnUrl });
+            var properties = new AuthenticationProperties 
+            { 
+                RedirectUri = redirectUrl 
+            };
+            return Challenge(properties, "Google");
+        }
+
+        [HttpGet]
+        [Route("google-callback")]
+        [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse<AuthResponseDto>>> GoogleCallback([FromQuery] string? returnUrl = null)
+        {
+            var info = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            
+            if (!info.Succeeded)
+            {
+                return Unauthorized(ApiResponse<AuthResponseDto>.Fail(401, "Google authentication failed."));
+            }
+
+            var apiResponse = await _authService.GoogleLoginAsync(info.Principal);
+
+            if(apiResponse.StatusCode != 200) { 
+                return BadRequest(apiResponse);
+            }
+
+            
+            // TODO: Redirect to returnUrl if needed            
+            return Ok(apiResponse);
         }
     }
 }

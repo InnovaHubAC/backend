@@ -1,4 +1,5 @@
-﻿using Innova.Application.DTOs.Auth;
+﻿using System.Security.Claims;
+using Innova.Application.DTOs.Auth;
 using Innova.Application.Services.Interfaces;
 using Innova.Application.Validations.Auth;
 
@@ -32,7 +33,7 @@ namespace Innova.Application.Services.Implementations
                 return userCreationError;
             }
 
-            // Send email confirmation
+            // TODO: use background job to send email
             await SendEmailConfirmationAsync(registerDto.Email, registerDto.UserName);
 
             return await GenerateAuthResponseAsync(registerDto.UserName, registerDto.Email);
@@ -266,6 +267,7 @@ namespace Innova.Application.Services.Implementations
             }
 
             var userName = await _identityService.GetUserNameByEmailAsync(forgotPasswordDto.Email);
+            // TODO: use background job to send email
             await _emailService.SendPasswordResetEmailAsync(forgotPasswordDto.Email, userName, resetToken);
 
             return new PasswordResetResponseDto
@@ -308,6 +310,88 @@ namespace Innova.Application.Services.Implementations
             {
                 IsSuccess = true,
                 Message = "Password reset successfully. You can now login with your new password.",
+            };
+        }
+
+        public async Task<ApiResponse<AuthResponseDto>> GoogleLoginAsync(ClaimsPrincipal principal)
+        {
+            var email = principal.FindFirstValue(ClaimTypes.Email);
+            var googleId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            var firstName = principal.FindFirstValue(ClaimTypes.GivenName);
+            var lastName = principal.FindFirstValue(ClaimTypes.Surname);
+
+            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(googleId))
+            {
+                return ApiResponse<AuthResponseDto>.Fail(400, "Failed to retrieve user information from Google.");
+            }
+
+            var userName = await GetUserNameByProviderAsync("Google", googleId);
+
+            if (userName == null)
+            {
+                if (await EmailExistsAsync(email))
+                {
+                    return ApiResponse<AuthResponseDto>.Fail(400, "An account with this email already exists. Please login with your password.");
+                }
+
+                var createResult = await CreateExternalUserAsync(email, firstName ?? "", lastName ?? "", "Google", googleId);
+                if (!createResult.Success)
+                {
+                    return ApiResponse<AuthResponseDto>.Fail(400, "Failed to create user.");
+                }
+
+                userName = email;
+            }
+
+            var result = await GenerateAuthResponseForExternalLoginAsync(userName, email);
+            _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", result.RefreshToken!, result.RefreshTokenExpiresOn);
+
+            return ApiResponse<AuthResponseDto>.Success(result);
+        }
+
+        public async Task<string?> GetUserNameByProviderAsync(string provider, string providerKey)
+        {
+            return await _identityService.GetUserNameByProviderAsync(provider, providerKey);
+        }
+
+        public async Task<bool> EmailExistsAsync(string email)
+        {
+            return await _identityService.EmailExistsAsync(email);
+        }
+
+        public async Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string firstName, string lastName, string provider, string providerKey)
+        {
+            var result = await _identityService.CreateExternalUserAsync(email, firstName, lastName, provider, providerKey);
+            
+            if (result.Success)
+            {
+                // Add default role to the new user
+                var roleErrors = await _identityService.AddToRoleAsync(email, DefaultUserRole);
+                if (roleErrors.Any())
+                {
+                    return (false, roleErrors);
+                }
+            }
+            
+            return result;
+        }
+
+        public async Task<AuthResponseDto> GenerateAuthResponseForExternalLoginAsync(string userName, string email)
+        {
+            var jwtToken = await _jwtTokenService.CreateTokenAsync(userName);
+            var refreshTokenResult = await _jwtTokenService.CreateRefreshTokenAsync(userName);
+
+            var (refreshToken, refreshTokenExpiry) = refreshTokenResult.Value;
+
+            return new AuthResponseDto
+            {
+                Message = "Login successful.",
+                IsAuthenticated = true,
+                Token = jwtToken,
+                RefreshToken = refreshToken,
+                RefreshTokenExpiresOn = refreshTokenExpiry,
+                UserName = userName,
+                Email = email,
             };
         }
     }

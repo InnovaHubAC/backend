@@ -185,5 +185,47 @@ public class IdentityService : IIdentityService
         var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
         return result.Succeeded;
     }
+
+    public async Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string firstName, string lastName, string provider, string providerKey)
+    {
+        var errors = new List<string>();
+        
+        // Create the user
+        var user = new AppUser
+        {
+            Email = email,
+            UserName = email, // Use email as username for external logins
+            FirstName = firstName,
+            LastName = lastName,
+            EmailConfirmed = true, // External providers verify the email
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var result = await _userManager.CreateAsync(user);
+        if (!result.Succeeded)
+        {
+            errors.AddRange(result.Errors.Select(e => e.Description));
+            return (false, errors);
+        }
+
+        // Add external login info
+        var info = new UserLoginInfo(provider, providerKey, provider);
+        var addLoginResult = await _userManager.AddLoginAsync(user, info);
+        if (!addLoginResult.Succeeded)
+        {
+            errors.AddRange(addLoginResult.Errors.Select(e => e.Description));
+            // Cleanup: remove the user if adding login fails
+            await _userManager.DeleteAsync(user);
+            return (false, errors);
+        }
+
+        return (true, errors);
+    }
+
+    public async Task<string?> GetUserNameByProviderAsync(string provider, string providerKey)
+    {
+        var user = await _userManager.FindByLoginAsync(provider, providerKey);
+        return user?.UserName;
+    }
 }
 
