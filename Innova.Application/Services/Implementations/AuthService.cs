@@ -214,7 +214,9 @@ namespace Innova.Application.Services.Implementations
                 };
             }
 
-            var isConfirmed = await _identityService.ConfirmEmailAsync(verifyEmailDto.Email, verifyEmailDto.Token);
+            var tokenBytes = Convert.FromBase64String(verifyEmailDto.Token);
+            var token = System.Text.Encoding.UTF8.GetString(tokenBytes);
+            var isConfirmed = await _identityService.ConfirmEmailAsync(verifyEmailDto.Email, token);
 
             if (!isConfirmed)
             {
@@ -334,13 +336,12 @@ namespace Innova.Application.Services.Implementations
                     return ApiResponse<AuthResponseDto>.Fail(400, "An account with this email already exists. Please login with your password.");
                 }
 
-                var createResult = await CreateExternalUserAsync(email, firstName ?? "", lastName ?? "", "Google", googleId);
+                userName = email.Split('@')[0]; // assuming username is the part before '@'
+                var createResult = await CreateExternalUserAsync(email, userName, firstName ?? "", lastName ?? "", "Google", googleId);
                 if (!createResult.Success)
                 {
                     return ApiResponse<AuthResponseDto>.Fail(400, "Failed to create user.");
                 }
-
-                userName = email;
             }
 
             var result = await GenerateAuthResponseForExternalLoginAsync(userName, email);
@@ -359,14 +360,14 @@ namespace Innova.Application.Services.Implementations
             return await _identityService.EmailExistsAsync(email);
         }
 
-        public async Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string firstName, string lastName, string provider, string providerKey)
+        public async Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string userName, string firstName, string lastName, string provider, string providerKey)
         {
-            var result = await _identityService.CreateExternalUserAsync(email, firstName, lastName, provider, providerKey);
+            var result = await _identityService.CreateExternalUserAsync(email, userName, firstName, lastName, provider, providerKey);
             
             if (result.Success)
             {
                 // Add default role to the new user
-                var roleErrors = await _identityService.AddToRoleAsync(email, DefaultUserRole);
+                var roleErrors = await _identityService.AddToRoleAsync(userName, DefaultUserRole);
                 if (roleErrors.Any())
                 {
                     return (false, roleErrors);

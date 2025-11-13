@@ -1,7 +1,5 @@
-﻿using Innova.Application.DTOs.Auth;
-using Microsoft.AspNetCore.Identity;
-using System.Linq.Expressions;
-using System.Security.Claims;
+﻿using System.Linq.Expressions;
+
 
 namespace Innova.Infrastructure.Services;
 
@@ -9,7 +7,6 @@ public class IdentityService : IIdentityService
 {
     private readonly UserManager<AppUser> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
-
     public IdentityService(UserManager<AppUser> userManager, RoleManager<IdentityRole> roleManager)
     {
         _userManager = userManager;
@@ -186,14 +183,14 @@ public class IdentityService : IIdentityService
         return result.Succeeded;
     }
 
-    public async Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string firstName, string lastName, string provider, string providerKey)
+    public async Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string userName, string firstName, string lastName, string provider, string providerKey)
     {
         var errors = new List<string>();
-        
+
         var user = new AppUser
         {
             Email = email,
-            UserName = email, // Use email as username for external logins
+            UserName = userName,
             FirstName = firstName,
             LastName = lastName,
             EmailConfirmed = true,

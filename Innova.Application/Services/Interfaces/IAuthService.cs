@@ -15,7 +15,7 @@ namespace Innova.Application.Services.Interfaces
         Task<ApiResponse<AuthResponseDto>> GoogleLoginAsync(ClaimsPrincipal principal);
         Task<string?> GetUserNameByProviderAsync(string provider, string providerKey);
         Task<bool> EmailExistsAsync(string email);
-        Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string firstName, string lastName, string provider, string providerKey);
+        Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string userName, string firstName, string lastName, string provider, string providerKey);
         Task<AuthResponseDto> GenerateAuthResponseForExternalLoginAsync(string userName, string email);
     }
 }

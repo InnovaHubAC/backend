@@ -120,9 +120,9 @@ namespace Innova.API.Controllers
         public IActionResult GoogleLogin([FromQuery] string? returnUrl = null)
         {
             var redirectUrl = Url.Action(nameof(GoogleCallback), "Auth", new { returnUrl });
-            var properties = new AuthenticationProperties 
-            { 
-                RedirectUri = redirectUrl 
+            var properties = new AuthenticationProperties
+            {
+                RedirectUri = redirectUrl
             };
             return Challenge(properties, "Google");
         }
@@ -144,13 +144,20 @@ namespace Innova.API.Controllers
 
             var apiResponse = await _authService.GoogleLoginAsync(info.Principal);
 
-            if(apiResponse.StatusCode != 200) { 
+            if (apiResponse.StatusCode != 200)
+            {
                 return BadRequest(apiResponse);
             }
-
             
-            // TODO: Redirect to returnUrl if needed            
-            return Ok(apiResponse);
+            // TODO: Must be changed to (only) redirect to returnUrl since this may return json response
+            if(string.IsNullOrEmpty(returnUrl))
+            {
+                return Ok(apiResponse);
+            }
+            else
+            {
+                return Redirect(returnUrl);
+            }
         }
     }
 }
