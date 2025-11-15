@@ -1,7 +1,5 @@
-﻿using Innova.Application.DTOs.Auth;
-using Microsoft.AspNetCore.Identity;
-using System.Linq.Expressions;
-using System.Security.Claims;
+﻿using System.Linq.Expressions;
+
 
 namespace Innova.Infrastructure.Services;
 
@@ -9,7 +7,6 @@ public class IdentityService : IIdentityService
 {
     private readonly UserManager<AppUser> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
-
     public IdentityService(UserManager<AppUser> userManager, RoleManager<IdentityRole> roleManager)
     {
         _userManager = userManager;
@@ -165,6 +162,64 @@ public class IdentityService : IIdentityService
             return false;
 
         return await _userManager.IsEmailConfirmedAsync(user);
+    }
+
+    public async Task<string> GeneratePasswordResetTokenAsync(string email)
+    {
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user == null)
+            return string.Empty;
+
+        return await _userManager.GeneratePasswordResetTokenAsync(user);
+    }
+
+    public async Task<bool> ResetPasswordAsync(string email, string token, string newPassword)
+    {
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user == null)
+            return false;
+
+        var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
+        return result.Succeeded;
+    }
+
+    public async Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string userName, string firstName, string lastName, string provider, string providerKey)
+    {
+        var errors = new List<string>();
+
+        var user = new AppUser
+        {
+            Email = email,
+            UserName = userName,
+            FirstName = firstName,
+            LastName = lastName,
+            EmailConfirmed = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var result = await _userManager.CreateAsync(user);
+        if (!result.Succeeded)
+        {
+            errors.AddRange(result.Errors.Select(e => e.Description));
+            return (false, errors);
+        }
+
+        var info = new UserLoginInfo(provider, providerKey, provider);
+        var addLoginResult = await _userManager.AddLoginAsync(user, info);
+        if (!addLoginResult.Succeeded)
+        {
+            errors.AddRange(addLoginResult.Errors.Select(e => e.Description));
+            await _userManager.DeleteAsync(user);
+            return (false, errors);
+        }
+
+        return (true, errors);
+    }
+
+    public async Task<string?> GetUserNameByProviderAsync(string provider, string providerKey)
+    {
+        var user = await _userManager.FindByLoginAsync(provider, providerKey);
+        return user?.UserName;
     }
 }
 

@@ -1,25 +1,20 @@
-﻿using Innova.Infrastructure.Data.Context;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
-
-namespace Innova.Infrastructure.Services
+﻿namespace Innova.Infrastructure.Services
 {
     public class JwtTokenService : IJwtTokenService
     {
         private readonly IIdentityService _identityService;
         private readonly UserManager<AppUser> _userManager;
         private readonly JwtSettings _jwt;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
 
-        public JwtTokenService(IIdentityService identityService, UserManager<AppUser> userManager, IOptions<JwtSettings> jwt)
+        public JwtTokenService(IIdentityService identityService, UserManager<AppUser> userManager, IOptions<JwtSettings> jwt, IHttpContextAccessor httpContextAccessor)
         {
             _identityService = identityService;
             _userManager = userManager;
             _jwt = jwt.Value;
+            _httpContextAccessor = httpContextAccessor;
+
         }
 
         public async Task<string> CreateTokenAsync(string userName)
@@ -123,5 +118,15 @@ namespace Innova.Infrastructure.Services
             return refreshToken!.ExpiresOn;
         }
 
+        public void SetTokenCookieAsHttpOnly(string cookieName, string token, DateTime expirationDate)
+        {
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Expires = expirationDate.ToLocalTime(),
+                Secure = true,
+            };
+            _httpContextAccessor.HttpContext.Response.Cookies.Append(cookieName, token, cookieOptions);
+        }
     }
 }

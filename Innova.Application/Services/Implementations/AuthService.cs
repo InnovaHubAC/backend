@@ -1,4 +1,5 @@
-﻿using Innova.Application.DTOs.Auth;
+﻿using System.Security.Claims;
+using Innova.Application.DTOs.Auth;
 using Innova.Application.Services.Interfaces;
 using Innova.Application.Validations.Auth;
 
@@ -32,7 +33,7 @@ namespace Innova.Application.Services.Implementations
                 return userCreationError;
             }
 
-            // Send email confirmation
+            // TODO: use background job to send email
             await SendEmailConfirmationAsync(registerDto.Email, registerDto.UserName);
 
             return await GenerateAuthResponseAsync(registerDto.UserName, registerDto.Email);
@@ -108,7 +109,7 @@ namespace Innova.Application.Services.Implementations
             var confirmationToken = await _identityService.GenerateEmailConfirmationTokenAsync(email);
             if (!string.IsNullOrEmpty(confirmationToken))
             {
-                await _emailService.SendEmailConfirmationAsync(email, userName, confirmationToken);
+                await _emailService.SendRegisterationEmailConfirmationAsync(email, userName, confirmationToken);
             }
         }
 
@@ -213,7 +214,9 @@ namespace Innova.Application.Services.Implementations
                 };
             }
 
-            var isConfirmed = await _identityService.ConfirmEmailAsync(verifyEmailDto.Email, verifyEmailDto.Token);
+            var tokenBytes = Convert.FromBase64String(verifyEmailDto.Token);
+            var token = System.Text.Encoding.UTF8.GetString(tokenBytes);
+            var isConfirmed = await _identityService.ConfirmEmailAsync(verifyEmailDto.Email, token);
 
             if (!isConfirmed)
             {
@@ -228,6 +231,168 @@ namespace Innova.Application.Services.Implementations
             {
                 IsVerified = true,
                 Message = "Email verified successfully.",
+            };
+        }
+
+        public async Task<PasswordResetResponseDto> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto)
+        {
+            var validator = new ForgotPasswordDtoValidator();
+            var validationResult = validator.Validate(forgotPasswordDto);
+
+            if (!validationResult.IsValid)
+            {
+                return new PasswordResetResponseDto
+                {
+                    IsSuccess = false,
+                    Message = "Validation failed.",
+                    Errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList(),
+                };
+            }
+
+            if (!await _identityService.EmailExistsAsync(forgotPasswordDto.Email))
+            {
+                return new PasswordResetResponseDto
+                {
+                    IsSuccess = true,
+                    Message = "If your email exists in our system, you will receive a password reset link shortly.",
+                };
+            }
+
+            var resetToken = await _identityService.GeneratePasswordResetTokenAsync(forgotPasswordDto.Email);
+            if (string.IsNullOrEmpty(resetToken))
+            {
+                return new PasswordResetResponseDto
+                {
+                    IsSuccess = false,
+                    Message = "Failed to generate password reset token.",
+                };
+            }
+
+            var userName = await _identityService.GetUserNameByEmailAsync(forgotPasswordDto.Email);
+            // TODO: use background job to send email
+            await _emailService.SendPasswordResetEmailAsync(forgotPasswordDto.Email, userName, resetToken);
+
+            return new PasswordResetResponseDto
+            {
+                IsSuccess = true,
+                Message = "If your email exists in our system, you will receive a password reset link shortly.",
+            };
+        }
+
+        public async Task<PasswordResetResponseDto> ResetPasswordAsync(ResetPasswordDto resetPasswordDto)
+        {
+            var validator = new ResetPasswordDtoValidator();
+            var validationResult = validator.Validate(resetPasswordDto);
+
+            if (!validationResult.IsValid)
+            {
+                return new PasswordResetResponseDto
+                {
+                    IsSuccess = false,
+                    Message = "Validation failed.",
+                    Errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList(),
+                };
+            }
+
+            var isReset = await _identityService.ResetPasswordAsync(
+                resetPasswordDto.Email,
+                resetPasswordDto.Token,
+                resetPasswordDto.NewPassword);
+
+            if (!isReset)
+            {
+                return new PasswordResetResponseDto
+                {
+                    IsSuccess = false,
+                    Message = "Password reset failed. Invalid token or email.",
+                };
+            }
+
+            return new PasswordResetResponseDto
+            {
+                IsSuccess = true,
+                Message = "Password reset successfully. You can now login with your new password.",
+            };
+        }
+
+        public async Task<ApiResponse<AuthResponseDto>> GoogleLoginAsync(ClaimsPrincipal principal)
+        {
+            var email = principal.FindFirstValue(ClaimTypes.Email);
+            var googleId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            var firstName = principal.FindFirstValue(ClaimTypes.GivenName);
+            var lastName = principal.FindFirstValue(ClaimTypes.Surname);
+
+            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(googleId))
+            {
+                return ApiResponse<AuthResponseDto>.Fail(400, "Failed to retrieve user information from Google.");
+            }
+
+            var userName = await GetUserNameByProviderAsync("Google", googleId);
+
+            if (userName == null)
+            {
+                if (await EmailExistsAsync(email))
+                {
+                    return ApiResponse<AuthResponseDto>.Fail(400, "An account with this email already exists. Please login with your password.");
+                }
+
+                userName = email.Split('@')[0]; // assuming username is the part before '@'
+                var createResult = await CreateExternalUserAsync(email, userName, firstName ?? "", lastName ?? "", "Google", googleId);
+                if (!createResult.Success)
+                {
+                    return ApiResponse<AuthResponseDto>.Fail(400, "Failed to create user.");
+                }
+            }
+
+            var result = await GenerateAuthResponseForExternalLoginAsync(userName, email);
+            _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", result.RefreshToken!, result.RefreshTokenExpiresOn);
+
+            return ApiResponse<AuthResponseDto>.Success(result);
+        }
+
+        public async Task<string?> GetUserNameByProviderAsync(string provider, string providerKey)
+        {
+            return await _identityService.GetUserNameByProviderAsync(provider, providerKey);
+        }
+
+        public async Task<bool> EmailExistsAsync(string email)
+        {
+            return await _identityService.EmailExistsAsync(email);
+        }
+
+        public async Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string userName, string firstName, string lastName, string provider, string providerKey)
+        {
+            var result = await _identityService.CreateExternalUserAsync(email, userName, firstName, lastName, provider, providerKey);
+            
+            if (result.Success)
+            {
+                // Add default role to the new user
+                var roleErrors = await _identityService.AddToRoleAsync(userName, DefaultUserRole);
+                if (roleErrors.Any())
+                {
+                    return (false, roleErrors);
+                }
+            }
+            
+            return result;
+        }
+
+        public async Task<AuthResponseDto> GenerateAuthResponseForExternalLoginAsync(string userName, string email)
+        {
+            var jwtToken = await _jwtTokenService.CreateTokenAsync(userName);
+            var refreshTokenResult = await _jwtTokenService.CreateRefreshTokenAsync(userName);
+
+            var (refreshToken, refreshTokenExpiry) = refreshTokenResult.Value;
+
+            return new AuthResponseDto
+            {
+                Message = "Login successful.",
+                IsAuthenticated = true,
+                Token = jwtToken,
+                RefreshToken = refreshToken,
+                RefreshTokenExpiresOn = refreshTokenExpiry,
+                UserName = userName,
+                Email = email,
             };
         }
     }

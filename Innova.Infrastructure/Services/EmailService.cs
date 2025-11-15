@@ -38,24 +38,23 @@ public class EmailService : IEmailService
 
       return true;
     }
-    catch (Exception ex)
+    catch (Exception)
     {
       // TODO: log the exception
       return false;
     }
   }
 
-  public async Task<bool> SendEmailConfirmationAsync(string toEmail, string userName, string confirmationToken)
+  public async Task<bool> SendRegisterationEmailConfirmationAsync(string toEmail, string userName, string confirmationToken)
   {
     var subject = "Confirm Your Email - Innova";
 
     // this is for safety
-    var encodedToken = Uri.EscapeDataString(confirmationToken);
-    var encodedEmail = Uri.EscapeDataString(toEmail);
+    var encodedToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(confirmationToken));
 
     // TODO: to be changed later
     var frontendURL = "https://yourapp.com/verify-email";
-    var confirmationLink = $"{frontendURL}?email={encodedEmail}&token={encodedToken}";
+    var confirmationLink = $"{frontendURL}?email={toEmail}&token={encodedToken}";
 
     var body = $@"
                 <html>
@@ -79,6 +78,53 @@ public class EmailService : IEmailService
                         <hr style='margin: 30px 0; border: none; border-top: 1px solid #ddd;'>
                         <p style='color: #999; font-size: 12px;'>
                             If you didn't create an account, please ignore this email.
+                        </p>
+                    </div>
+                </body>
+                </html>
+            ";
+
+    return await SendEmailAsync(toEmail, subject, body, true);
+  }
+
+  public async Task<bool> SendPasswordResetEmailAsync(string toEmail, string userName, string resetToken)
+  {
+    var subject = "Reset Your Password - Innova";
+
+    // this is for safety
+    var encodedToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(resetToken));
+
+    // TODO: to be changed later
+    var frontendURL = "https://yourapp.com/reset-password";
+    var resetLink = $"{frontendURL}?email={toEmail}&token={encodedToken}";
+
+    var body = $@"
+                <html>
+                <body style='font-family: Arial, sans-serif;'>
+                    <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
+                        <h2 style='color: #333;'>Password Reset Request</h2>
+                        <p>Hi {userName},</p>
+                        <p>We received a request to reset your password for your Innova account.</p>
+                        <p>Click the button below to reset your password:</p>
+                        <div style='text-align: center; margin: 30px 0;'>
+                            <a href='{resetLink}' 
+                               style='background-color: #dc3545; color: white; padding: 12px 30px; 
+                                      text-decoration: none; border-radius: 5px; display: inline-block;'>
+                                Reset Password
+                            </a>
+                        </div>
+                        <p style='color: #666; font-size: 14px;'>
+                            If the button doesn't work, copy and paste this link into your browser:
+                        </p>
+                        <p style='color: #dc3545; word-break: break-all; font-size: 12px;'>
+                            {resetLink}
+                        </p>
+                        <hr style='margin: 30px 0; border: none; border-top: 1px solid #ddd;'>
+                        <p style='color: #999; font-size: 12px;'>
+                            If you didn't request a password reset, please ignore this email or contact support if you have concerns.
+                        </p>
+                        <p style='color: #999; font-size: 12px;'>
+                            This link will expire in a few hours for security reasons.
                         </p>
                     </div>
                 </body>

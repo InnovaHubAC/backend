@@ -1,4 +1,3 @@
-
 namespace Innova.Infrastructure.Extensions;
 
 public static class InfrastructureExtensions
@@ -12,7 +11,7 @@ public static class InfrastructureExtensions
                 b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
 
         // Configure Identity Core
-        services.AddIdentityCore<AppUser>(options =>
+        services.AddIdentity<AppUser, IdentityRole>(options =>
         {
             options.Password.RequireDigit = true;
             options.Password.RequireLowercase = true;
@@ -26,8 +25,8 @@ public static class InfrastructureExtensions
 
             options.User.RequireUniqueEmail = true;
         })
-        .AddRoles<IdentityRole>()
-        .AddEntityFrameworkStores<ApplicationDbContext>();
+        .AddEntityFrameworkStores<ApplicationDbContext>()
+        .AddDefaultTokenProviders();
 
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
