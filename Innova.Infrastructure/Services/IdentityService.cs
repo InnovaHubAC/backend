@@ -166,5 +166,10 @@ public class IdentityService : IIdentityService
 
         return await _userManager.IsEmailConfirmedAsync(user);
     }
+
+    public async Task<bool> UserExistsAsync(string id)
+    {
+        return await _userManager.FindByIdAsync(id) is not null;
+    }
 }
 

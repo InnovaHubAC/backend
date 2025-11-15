@@ -16,5 +16,6 @@ namespace Innova.Domain.Interfaces
         Task<string> GenerateEmailConfirmationTokenAsync(string email);
         Task<bool> ConfirmEmailAsync(string email, string token);
         Task<bool> IsEmailConfirmedAsync(string email);
+        Task<bool> UserExistsAsync(string id);
     }
 }

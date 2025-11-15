@@ -24,5 +24,6 @@ public static class ServiceExtensions
         // services.AddMappings(); to be reviewe
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IDepartmentService, DepartmentService>();
+        services.AddScoped<IIdeaService, IdeaService>();
     }
 }

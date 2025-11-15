@@ -45,3 +45,4 @@ wwwroot/
 
 # Miscellaneous ignores
 endpoints.md
+/Innova.API/assets

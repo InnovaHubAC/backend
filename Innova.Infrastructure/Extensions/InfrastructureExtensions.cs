@@ -34,7 +34,8 @@ public static class InfrastructureExtensions
         services.AddScoped<IEmailService, EmailService>();
 
         services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
-        
+
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IFileStorageService, FileStorageService>();
     }
 }
