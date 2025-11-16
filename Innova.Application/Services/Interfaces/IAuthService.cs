@@ -6,12 +6,12 @@ namespace Innova.Application.Services.Interfaces
 {
     public interface IAuthService
     {
-        Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto);
-        Task<AuthResponseDto> LoginAsync(LoginDto loginDto);
-        Task<AuthResponseDto> RefreshToken(string token);
-        Task<VerifyEmailResponseDto> VerifyEmailAsync(VerifyEmailDto verifyEmailDto);
-        Task<PasswordResetResponseDto> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto);
-        Task<PasswordResetResponseDto> ResetPasswordAsync(ResetPasswordDto resetPasswordDto);
+        Task<ApiResponse<AuthResponseDto>> RegisterAsync(RegisterDto registerDto);
+        Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginDto loginDto);
+        Task<ApiResponse<AuthResponseDto>> RefreshToken(string token);
+        Task<ApiResponse<VerifyEmailResponseDto>> VerifyEmailAsync(VerifyEmailDto verifyEmailDto);
+        Task<ApiResponse<PasswordResetResponseDto>> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto);
+        Task<ApiResponse<PasswordResetResponseDto>> ResetPasswordAsync(ResetPasswordDto resetPasswordDto);
         Task<ApiResponse<AuthResponseDto>> GoogleLoginAsync(ClaimsPrincipal principal);
         Task<string?> GetUserNameByProviderAsync(string provider, string providerKey);
         Task<bool> EmailExistsAsync(string email);

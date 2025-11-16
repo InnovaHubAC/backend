@@ -2,11 +2,11 @@ namespace Innova.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class Departments : ControllerBase
+public class DepartmentsController : ControllerBase
 {
     private readonly IDepartmentService _departmentService;
 
-    public Departments(IDepartmentService departmentService)
+    public DepartmentsController(IDepartmentService departmentService)
     {
         _departmentService = departmentService;
     }
@@ -15,8 +15,8 @@ public class Departments : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<DepartmentDto>>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<DepartmentDto>>>> GetAllDepartments()
     {
-        var departments = await _departmentService.GetAllDepartmentsAsync();
-        return Ok(ApiResponse<IReadOnlyList<DepartmentDto>>.Success(departments));
+        var departmentsResponse = await _departmentService.GetAllDepartmentsAsync();
+        return Ok(departmentsResponse);
     }
 
     [HttpGet("{id}")]
@@ -24,14 +24,14 @@ public class Departments : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<DepartmentDto>), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<DepartmentDto>>> GetDepartmentById(int id)
     {
-        var department = await _departmentService.GetDepartmentByIdAsync(id);
+        var departmentResponse = await _departmentService.GetDepartmentByIdAsync(id);
 
-        if (department == null)
+        if (departmentResponse.Data == null)
         {
             return NotFound(ApiResponse<DepartmentDto>.Fail(404, $"Department with ID {id} not found"));
         }
 
-        return Ok(ApiResponse<DepartmentDto>.Success(department));
+        return Ok(departmentResponse);
     }
 
     [HttpPost]
@@ -39,11 +39,17 @@ public class Departments : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<DepartmentDto>), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<ApiResponse<DepartmentDto>>> CreateDepartment([FromBody] CreateDepartmentDto createDto)
     {
-        var department = await _departmentService.CreateDepartmentAsync(createDto);
+        var departmentResponse = await _departmentService.CreateDepartmentAsync(createDto);
+
+        if (departmentResponse.Data == null)
+        {
+            return BadRequest(departmentResponse);
+        }
+
         return CreatedAtAction(
             nameof(GetDepartmentById),
-            new { id = department.Id },
-            new ApiResponse<DepartmentDto>(201, department, "Department created successfully"));
+            new { id = departmentResponse.Data!.Id },
+            departmentResponse);
     }
 
     [HttpPut("{id}")]
@@ -53,14 +59,19 @@ public class Departments : ControllerBase
     public async Task<ActionResult<ApiResponse<DepartmentDto>>> UpdateDepartment(int id, [FromBody] UpdateDepartmentDto updateDto)
     {
 
-        var department = await _departmentService.UpdateDepartmentAsync(id, updateDto);
+        var departmentResponse = await _departmentService.UpdateDepartmentAsync(id, updateDto);
 
-        if (department == null)
+        if (departmentResponse.StatusCode == StatusCodes.Status404NotFound)
         {
             return NotFound(ApiResponse<DepartmentDto>.Fail(404, $"Department with ID {id} not found"));
         }
 
-        return Ok(new ApiResponse<DepartmentDto>(200, department, "Department updated successfully"));
+        if(departmentResponse.StatusCode == StatusCodes.Status400BadRequest)
+        {
+            return BadRequest(departmentResponse);
+        }
+
+        return Ok(departmentResponse);
 
     }
 
@@ -69,14 +80,14 @@ public class Departments : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<bool>>> DeleteDepartment(int id)
     {
-        var result = await _departmentService.DeleteDepartmentAsync(id);
+        var response = await _departmentService.DeleteDepartmentAsync(id);
 
-        if (!result)
+        if (response.Data!.IsDeleted == false)
         {
             return NotFound(ApiResponse<bool>.Fail(404, $"Department with ID {id} not found"));
         }
 
-        return Ok(new ApiResponse<bool>(200, true, "Department deleted successfully"));
+        return Ok(response);
     }
 }
 

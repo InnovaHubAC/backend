@@ -25,13 +25,13 @@ namespace Innova.API.Controllers
         [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Register(RegisterDto registerDto)
         {
-            var result = await _authService.RegisterAsync(registerDto);
+            var response = await _authService.RegisterAsync(registerDto);
 
-            if (!result.IsAuthenticated)
-                return BadRequest(ApiResponse<AuthResponseDto>.Fail(400, result.Message, result.Errors));
+            if (!response.Data!.IsAuthenticated)
+                return BadRequest(response);
 
-            _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", result.RefreshToken!, result.RefreshTokenExpiresOn);
-            return Ok(ApiResponse<AuthResponseDto>.Success(result));
+            _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", response.Data.RefreshToken!, response.Data.RefreshTokenExpiresOn);
+            return Ok(response);
 
         }
 
@@ -42,12 +42,12 @@ namespace Innova.API.Controllers
         [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Login(LoginDto loginDto)
         {
-            var result = await _authService.LoginAsync(loginDto);
-            if (!result.IsAuthenticated)
-                return BadRequest(ApiResponse<AuthResponseDto>.Fail(400, result.Message, result.Errors));
+            var response = await _authService.LoginAsync(loginDto);
+            if (!response.Data!.IsAuthenticated)
+                return BadRequest(response);
 
-            _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", result.RefreshToken!, result.RefreshTokenExpiresOn);
-            return Ok(ApiResponse<AuthResponseDto>.Success(result));
+            _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", response.Data.RefreshToken!, response.Data.RefreshTokenExpiresOn);
+            return Ok(response);
         }
 
         [HttpGet]
@@ -61,12 +61,13 @@ namespace Innova.API.Controllers
             {
                 return BadRequest(ApiResponse<AuthResponseDto>.Fail(400, "Refresh token is missing."));
             }
-            var result = await _authService.RefreshToken(refreshToken);
-            if (!result.IsAuthenticated)
-                return BadRequest(ApiResponse<AuthResponseDto>.Fail(400, result.Message, result.Errors));
 
-            _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", result.RefreshToken!, result.RefreshTokenExpiresOn);
-            return Ok(ApiResponse<AuthResponseDto>.Success(result));
+            var response = await _authService.RefreshToken(refreshToken);
+            if (!response.Data!.IsAuthenticated)
+                return BadRequest(response);
+
+            _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", response.Data.RefreshToken!, response.Data.RefreshTokenExpiresOn);
+            return Ok(response);
         }
 
         [HttpPost]
@@ -76,12 +77,12 @@ namespace Innova.API.Controllers
         [ProducesResponseType(typeof(ApiResponse<VerifyEmailResponseDto>), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ApiResponse<VerifyEmailResponseDto>>> VerifyEmail(VerifyEmailDto verifyEmailDto)
         {
-            var result = await _authService.VerifyEmailAsync(verifyEmailDto);
+            var response = await _authService.VerifyEmailAsync(verifyEmailDto);
 
-            if (!result.IsVerified)
-                return BadRequest(ApiResponse<VerifyEmailResponseDto>.Fail(400, result.Message, result.Errors));
+            if (!response.Data!.IsVerified)
+                return BadRequest(response);
 
-            return Ok(ApiResponse<VerifyEmailResponseDto>.Success(result));
+            return Ok(response);
         }
 
         [HttpPost]
@@ -91,12 +92,12 @@ namespace Innova.API.Controllers
         [ProducesResponseType(typeof(ApiResponse<PasswordResetResponseDto>), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ApiResponse<PasswordResetResponseDto>>> ForgotPassword(ForgotPasswordDto forgotPasswordDto)
         {
-            var result = await _authService.ForgotPasswordAsync(forgotPasswordDto);
+            var response = await _authService.ForgotPasswordAsync(forgotPasswordDto);
 
-            if (!result.IsSuccess)
-                return BadRequest(ApiResponse<PasswordResetResponseDto>.Fail(400, result.Message, result.Errors));
+            if (!response.Data!.IsSuccess)
+                return BadRequest(response);
 
-            return Ok(ApiResponse<PasswordResetResponseDto>.Success(result));
+            return Ok(response);
         }
 
         [HttpPost]
@@ -106,12 +107,12 @@ namespace Innova.API.Controllers
         [ProducesResponseType(typeof(ApiResponse<PasswordResetResponseDto>), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ApiResponse<PasswordResetResponseDto>>> ResetPassword(ResetPasswordDto resetPasswordDto)
         {
-            var result = await _authService.ResetPasswordAsync(resetPasswordDto);
+            var response = await _authService.ResetPasswordAsync(resetPasswordDto);
 
-            if (!result.IsSuccess)
-                return BadRequest(ApiResponse<PasswordResetResponseDto>.Fail(400, result.Message, result.Errors));
+            if (!response.Data!.IsSuccess)
+                return BadRequest(response);
 
-            return Ok(ApiResponse<PasswordResetResponseDto>.Success(result));
+            return Ok(response);
         }
 
         [HttpGet]

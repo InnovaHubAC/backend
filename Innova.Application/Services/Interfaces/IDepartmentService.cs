@@ -2,9 +2,9 @@ namespace Innova.Application.Services.Interfaces;
 
 public interface IDepartmentService
 {
-    Task<IReadOnlyList<DepartmentDto>> GetAllDepartmentsAsync();
-    Task<DepartmentDto?> GetDepartmentByIdAsync(int id);
-    Task<DepartmentDto> CreateDepartmentAsync(CreateDepartmentDto createDto);
-    Task<DepartmentDto?> UpdateDepartmentAsync(int id, UpdateDepartmentDto updateDto);
-    Task<bool> DeleteDepartmentAsync(int id);
+    Task<ApiResponse<IReadOnlyList<DepartmentDto>>> GetAllDepartmentsAsync();
+    Task<ApiResponse<DepartmentDto>> GetDepartmentByIdAsync(int id);
+    Task<ApiResponse<DepartmentDto>> CreateDepartmentAsync(CreateDepartmentDto createDto);
+    Task<ApiResponse<DepartmentDto>> UpdateDepartmentAsync(int id, UpdateDepartmentDto updateDto);
+    Task<ApiResponse<DeletedDto>> DeleteDepartmentAsync(int id);
 }
