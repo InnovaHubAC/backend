@@ -1,5 +1,6 @@
 ﻿using Innova.Application.DTOs.Idea;
 using Innova.Application.Validations.Idea;
+using System.Linq.Expressions;
 
 namespace Innova.Application.Services.Implementations
 {
@@ -9,6 +10,7 @@ namespace Innova.Application.Services.Implementations
         private readonly IIdentityService _identityService;
         private readonly IFileStorageService _fileStorageService;
         private readonly CreateIdeaDtoValidator _createIdeaValidator;
+        private readonly UpdateIdeaDtoValidator _updateIdeaValidator;
 
         public IdeaService(IUnitOfWork unitOfWork, IIdentityService identityService, IFileStorageService fileStorageService)
         {
@@ -16,6 +18,7 @@ namespace Innova.Application.Services.Implementations
             _identityService = identityService;
             _fileStorageService = fileStorageService;
             _createIdeaValidator = new CreateIdeaDtoValidator();
+            _updateIdeaValidator = new UpdateIdeaDtoValidator();
         }
 
 
@@ -109,6 +112,117 @@ namespace Innova.Application.Services.Implementations
             if (!validationResponse.Data)
                 return validationResponse;
             return await SaveIdeaAsync(createIdeaDto);
+        }
+
+        public async Task<ApiResponse<bool>> UpdateIdeaAsync(UpdateIdeaDto updateIdeaDto)
+        {
+            var validationResponse = await ValidateUpdateIdeaAsync(updateIdeaDto);
+            if (!validationResponse.Data)
+                return ApiResponse<bool>.Fail(validationResponse.StatusCode, validationResponse.Message!, validationResponse.Details);
+
+            return await UpdateAndSaveIdeaAsync(updateIdeaDto);
+        }
+
+        private async Task<ApiResponse<bool>> ValidateUpdateIdeaAsync(UpdateIdeaDto updateIdeaDto)
+        {
+            var dtoValidationResult = ValidateUpdateDto(updateIdeaDto);
+            if (!dtoValidationResult.Data)
+                return dtoValidationResult;
+
+            var departmentValidationResult = await ValidateDepartmentExistsAsync(updateIdeaDto.DepartmentId);
+            if (!departmentValidationResult.Data)
+                return departmentValidationResult;
+
+            var userValidationResult = await ValidateUserExistsAsync(updateIdeaDto.AppUserId);
+            if (!userValidationResult.Data)
+                return userValidationResult;
+
+            return ApiResponse<bool>.Success(true);
+        }
+
+        private ApiResponse<bool> ValidateUpdateDto(UpdateIdeaDto updateIdeaDto)
+        {
+            var validationResult = _updateIdeaValidator.Validate(updateIdeaDto);
+            if (!validationResult.IsValid)
+            {
+                var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+                return ApiResponse<bool>.Fail(400, "Validation Failed", errors);
+            }
+
+            return ApiResponse<bool>.Success(true);
+        }
+
+        private async Task<ApiResponse<bool>> UpdateAndSaveIdeaAsync(UpdateIdeaDto updateIdeaDto)
+        {
+            var idea = await _unitOfWork.IdeaRepository.GetByIdWithIncludesAsync(updateIdeaDto.Id, new()
+            {
+                x => x.Attachments!,
+                x => x.Department
+            });
+
+            if (idea is null)
+                return ApiResponse<bool>.Fail(404, "Idea not found");
+
+            // Identify attachments to remove from storage after updating the idea entity.
+            var attachmentsToRemoveFromStorage = idea.Attachments?
+                .Where(a => updateIdeaDto.RemovedAttachmentIds != null && updateIdeaDto.RemovedAttachmentIds.Contains(a.Id))
+                .ToList();
+            await SaveUpdatedIdeaEntityAsync(updateIdeaDto, idea!);
+            DeleteAttachmentsFromStorage(attachmentsToRemoveFromStorage);
+            return ApiResponse<bool>.Success(true);
+        }
+
+        private void DeleteAttachmentsFromStorage(List<Attachment>? attachments)
+        {
+            if (attachments is null || !attachments.Any())
+                return;
+            attachments.ForEach(attachment => _fileStorageService.RemoveFile(attachment.FileUrl, attachment.FileType));
+        }
+        private async Task SaveUpdatedIdeaEntityAsync(UpdateIdeaDto updateIdeaDto, Idea idea)
+        {
+            updateIdeaDto.Adapt(idea, TypeAdapterConfig.GlobalSettings);
+            idea.UpdatedAt = DateTime.UtcNow;
+            await HandleAttachmentUpdatesAsync(updateIdeaDto, idea);
+            _unitOfWork.IdeaRepository.Update(idea!);
+            await _unitOfWork.CompleteAsync();
+        }
+
+        private async Task HandleAttachmentUpdatesAsync(UpdateIdeaDto updateIdeaDto, Idea idea)
+        {
+            RemoveMarkedAttachments(updateIdeaDto, idea);
+            await AddNewAttachmentsAsync(updateIdeaDto, idea);
+        }
+
+        private async Task AddNewAttachmentsAsync(UpdateIdeaDto updateIdeaDto, Idea idea)
+        {
+            // Add new attachments
+            if (updateIdeaDto.Attachments != null && updateIdeaDto.Attachments.Any())
+            {
+                foreach (var file in updateIdeaDto.Attachments)
+                {
+                    var extension = Path.GetExtension(file.FileName);
+                    var fileName = $"{Guid.NewGuid()}{extension}";
+                    var fileUrl = await _fileStorageService.SaveFileAsync(file.Data, fileName, file.ContentType);
+                    var attachment = new Attachment
+                    {
+                        FileName = fileName,
+                        FileType = file.ContentType,
+                        FileUrl = fileUrl,
+                    };
+                    idea.Attachments!.Add(attachment);
+                }
+            }
+        }
+
+        private static void RemoveMarkedAttachments(UpdateIdeaDto updateIdeaDto, Idea idea)
+        {
+            if (updateIdeaDto.RemovedAttachmentIds != null && updateIdeaDto.RemovedAttachmentIds.Any())
+            {
+                var attachmentsToRemove = idea.Attachments!
+                    .Where(a => updateIdeaDto.RemovedAttachmentIds.Contains(a.Id))
+                    .ToList();
+                attachmentsToRemove.ForEach(attachment => idea.Attachments!.Remove(attachment));
+            }
         }
     }
 }

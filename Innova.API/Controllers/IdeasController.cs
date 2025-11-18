@@ -3,6 +3,7 @@ using Innova.API.Requests.Idea;
 using Innova.Application.DTOs;
 using Innova.Application.DTOs.Common;
 using Innova.Application.DTOs.Idea;
+using Innova.Application.Validations.Idea;
 using Mapster;
 
 namespace Innova.API.Controllers
@@ -36,5 +37,25 @@ namespace Innova.API.Controllers
                 _ => StatusCode(result.StatusCode, result)
             };
         }
+
+        [HttpPut]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse<bool>>> UpdateIdea([FromForm] UpdateIdeaRequest updateIdea)
+        {
+            UpdateIdeaDto updateIdeaDto = updateIdea.Adapt<UpdateIdeaDto>();
+            updateIdeaDto.Attachments = await FileHelper.ConvertFilesToAttachments(updateIdea.Attachments!);
+            var result = await _ideaService.UpdateIdeaAsync(updateIdeaDto);
+            return result.StatusCode switch
+            {
+                200 => Ok(result),
+                400 => BadRequest(result),
+                404 => NotFound(result),
+                _ => StatusCode(result.StatusCode, result)
+            };
+        }
+
     }
 }

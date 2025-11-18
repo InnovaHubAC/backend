@@ -1,3 +1,5 @@
+using Innova.Application.Validations.Idea;
+
 namespace Innova.Application.MappingConfig;
 
 public class MappingConfig
@@ -10,5 +12,9 @@ public class MappingConfig
 
         // Register all mapping configurations in this assembly
         TypeAdapterConfig.GlobalSettings.Scan(Assembly.GetExecutingAssembly());
+
+        TypeAdapterConfig.GlobalSettings
+            .ForType<UpdateIdeaDto, Idea>()
+            .Ignore(dest => dest.Attachments!);
     }
 }
