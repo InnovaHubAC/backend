@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+
 namespace Innova.Infrastructure.Repositories;
 
 public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
@@ -12,6 +14,16 @@ public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
     public async Task<T?> GetByIdAsync(int id)
     {
         return await _context.Set<T>().FindAsync(id);
+    }
+
+    public async Task<T?> GetByIdWithIncludesAsync(int id, List<Expression<Func<T, object>>>? includeProperties)
+    {
+        IQueryable<T> query = _context.Set<T>();
+
+        if (includeProperties is not null && includeProperties.Any())
+            includeProperties.ForEach(include => query = query.Include(include));
+
+        return await query.FirstOrDefaultAsync(e => e.Id == id);
     }
 
     public async Task<IReadOnlyList<T>> ListAllAsync()
