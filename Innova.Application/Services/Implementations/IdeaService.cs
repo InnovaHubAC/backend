@@ -247,5 +247,28 @@ namespace Innova.Application.Services.Implementations
             ideaDetailsDto.UserId = idea.AppUserId;
             return ApiResponse<IdeaDetailsDto>.Success(ideaDetailsDto);
         }
+
+        public async Task<ApiResponse<bool>> DeleteIdeaAsync(int ideaId,string userId)
+        {
+            var idea = await _unitOfWork.IdeaRepository.GetByIdWithIncludesAsync(ideaId, new()
+            {
+                x => x.Attachments!
+            });
+
+            if (idea is null)
+                return ApiResponse<bool>.Fail(404, "Idea not found");
+
+            if (idea.AppUserId != userId)
+            {
+                return ApiResponse<bool>.Fail(403, "You do not have permission to delete this idea");
+            }
+
+            await _unitOfWork.IdeaRepository.DeleteAsync(idea);
+            await _unitOfWork.CompleteAsync();
+
+            // Delete attachments from storage
+            DeleteAttachmentsFromStorage(idea.Attachments?.ToList());
+            return ApiResponse<bool>.Success(true);
+        }
     }
 }
