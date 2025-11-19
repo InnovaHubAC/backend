@@ -17,3 +17,5 @@ global using Innova.Infrastructure.Services;
 global using MailKit.Net.Smtp;
 global using MailKit.Security;
 global using MimeKit;
+global using System.Linq.Expressions;
+global using System.Security.Claims;

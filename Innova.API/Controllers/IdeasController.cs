@@ -5,6 +5,9 @@ using Innova.Application.DTOs.Common;
 using Innova.Application.DTOs.Idea;
 using Innova.Application.Validations.Idea;
 using Mapster;
+using Microsoft.AspNetCore.Authorization;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace Innova.API.Controllers
 {
@@ -72,6 +75,23 @@ namespace Innova.API.Controllers
                 404 => NotFound(result),
                 _ => StatusCode(result.StatusCode, result)
             };
+        }
+
+        [HttpDelete]
+        [Authorize]
+        [Route("{ideaId:int}")]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse<bool>>> DeleteIdea([FromRoute] int ideaId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(ApiResponse<bool>.Fail(401, "User not authenticated"));
+            var result = await _ideaService.DeleteIdeaAsync(ideaId, userId);
+            return StatusCode(result.StatusCode, result);
         }
 
     }
