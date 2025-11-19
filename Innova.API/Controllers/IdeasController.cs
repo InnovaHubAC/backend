@@ -57,5 +57,22 @@ namespace Innova.API.Controllers
             };
         }
 
+        [HttpGet]
+        [Route("{ideaId:int}")]
+        [ProducesResponseType(typeof(ApiResponse<IdeaDetailsDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<IdeaDetailsDto>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<IdeaDetailsDto>), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiResponse<IdeaDetailsDto>), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse<IdeaDetailsDto>>> GetIdeaDetails([FromRoute] int ideaId)
+        {
+            var result = await _ideaService.GetIdeaDetailsAsync(ideaId);
+            return result.StatusCode switch
+            {
+                200 => Ok(result),
+                404 => NotFound(result),
+                _ => StatusCode(result.StatusCode, result)
+            };
+        }
+
     }
 }

@@ -1,4 +1,5 @@
-﻿using Innova.Application.DTOs.Idea;
+﻿using Innova.Application.DTOs.Attachment;
+using Innova.Application.DTOs.Idea;
 using Innova.Application.Validations.Idea;
 using System.Linq.Expressions;
 
@@ -223,6 +224,28 @@ namespace Innova.Application.Services.Implementations
                     .ToList();
                 attachmentsToRemove.ForEach(attachment => idea.Attachments!.Remove(attachment));
             }
+        }
+
+        public async Task<ApiResponse<IdeaDetailsDto>> GetIdeaDetailsAsync(int ideaId)
+        {
+            var idea = await _unitOfWork.IdeaRepository.GetByIdWithIncludesAsync(ideaId, new()
+            {
+                x => x.Attachments!,
+                x => x.Department
+            });
+
+            if (idea is null)
+                return ApiResponse<IdeaDetailsDto>.Fail(404, "Idea not found");
+
+            var user = await _identityService.GetUserForIdeaAsync(idea.AppUserId);
+
+            var ideaDetailsDto = idea.Adapt<IdeaDetailsDto>();
+            ideaDetailsDto.IdeaAttachments = idea.Attachments!.Adapt<List<AttachmentDto>>();
+            ideaDetailsDto.UserName = user.Value.UserName;
+            ideaDetailsDto.FirstName = user.Value.FirstName;
+            ideaDetailsDto.LastName = user.Value.LastName;
+            ideaDetailsDto.UserId = idea.AppUserId;
+            return ApiResponse<IdeaDetailsDto>.Success(ideaDetailsDto);
         }
     }
 }

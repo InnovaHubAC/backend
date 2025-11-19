@@ -1,4 +1,5 @@
 ﻿using Innova.Application.DTOs.Auth;
+using Innova.Domain.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using System.Linq.Expressions;
 using System.Security.Claims;
@@ -171,5 +172,18 @@ public class IdentityService : IIdentityService
     {
         return await _userManager.FindByIdAsync(id) is not null;
     }
+    public async Task<(string FirstName, string LastName, string UserName)?> GetUserForIdeaAsync(string userId)
+    {
+        var user = await _userManager.Users
+            .Where(u => u.Id == userId)
+            .Select(u => new { u.FirstName, u.LastName, u.UserName })
+            .FirstOrDefaultAsync();
+
+        if (user == null)
+            return null;
+
+        return (user.FirstName!, user.LastName!, user.UserName!);
+    }
+
 }
 
