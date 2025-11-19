@@ -24,6 +24,8 @@ builder.Services.AddSwaggerGen(opt =>
 
 builder.Services.ConfigureCors();
 
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.ConfigureServices();
 
 builder.Services.AddJwtAuthentication(builder.Configuration);

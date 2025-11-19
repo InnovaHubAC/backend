@@ -1,5 +1,5 @@
-﻿using Innova.Application.DTOs.Auth;
-using Innova.Application.Services.Interfaces;
+﻿using System.Security.Claims;
+using Innova.Application.DTOs.Auth;
 using Innova.Application.Validations.Auth;
 
 namespace Innova.Application.Services.Implementations
@@ -18,26 +18,225 @@ namespace Innova.Application.Services.Implementations
             _emailService = emailService;
         }
 
-        public async Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto)
+        // Public methods first
+        public async Task<ApiResponse<AuthResponseDto>> RegisterAsync(RegisterDto registerDto)
         {
             var validationError = await ValidateRegistrationAsync(registerDto);
             if (validationError != null)
             {
-                return validationError;
+                return new ApiResponse<AuthResponseDto>(400, null, validationError.Message, validationError.Errors);
             }
 
             var userCreationError = await CreateUserWithRoleAsync(registerDto);
             if (userCreationError != null)
             {
-                return userCreationError;
+                return new ApiResponse<AuthResponseDto>(400, null, userCreationError.Message, userCreationError.Errors);
             }
 
-            // Send email confirmation
+            // TODO: use background job to send email
             await SendEmailConfirmationAsync(registerDto.Email, registerDto.UserName);
 
-            return await GenerateAuthResponseAsync(registerDto.UserName, registerDto.Email);
+            var response = await GenerateAuthResponseAsync(registerDto.UserName, registerDto.Email);
+            return new ApiResponse<AuthResponseDto>(201, response, "Registration successful. Please check your email to verify your account.");
         }
 
+        public async Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginDto loginDto)
+        {
+            // Validate user credentials
+            if (!await _identityService.ValidateUserCredentialsAsync(loginDto.Email, loginDto.Password))
+            {
+                return new ApiResponse<AuthResponseDto>(400, null, "Invalid email or password.");
+            }
+
+            if(!await _identityService.IsEmailConfirmedAsync(loginDto.Email))
+            {
+                return new ApiResponse<AuthResponseDto>(400, null, "Email is not confirmed. Please verify your email before logging in.");
+            }
+
+            var response = await CreateAuthResponseForLoginAsync(loginDto);
+            return new ApiResponse<AuthResponseDto>(200, response, "Login successful.");
+        }
+
+        public async Task<ApiResponse<AuthResponseDto>> RefreshToken(string token)
+        {
+            if (!await _jwtTokenService.ValidateRefreshTokenAsync(token))
+            {
+                return new ApiResponse<AuthResponseDto>(400, null, "Invalid refresh token.");
+            }
+            var response = await GenerateAuthResponseFromRefreshTokenAsync(token);
+            return new ApiResponse<AuthResponseDto>(200, response, "Token refreshed successfully.");
+        }
+
+        public async Task<ApiResponse<VerifyEmailResponseDto>> VerifyEmailAsync(VerifyEmailDto verifyEmailDto)
+        {
+            var validator = new VerifyEmailDtoValidator();
+            var validationResult = validator.Validate(verifyEmailDto);
+
+            if (!validationResult.IsValid)
+            {
+                return new ApiResponse<VerifyEmailResponseDto>(400, null, "Validation failed.", validationResult.Errors.Select(e => e.ErrorMessage).ToList());
+            }
+
+            var tokenBytes = Convert.FromBase64String(verifyEmailDto.Token);
+            var token = System.Text.Encoding.UTF8.GetString(tokenBytes);
+            var isConfirmed = await _identityService.ConfirmEmailAsync(verifyEmailDto.Email, token);
+
+            if (!isConfirmed)
+            {
+                return new ApiResponse<VerifyEmailResponseDto>(400, null, "Email verification failed.");
+            }
+
+            var response = new VerifyEmailResponseDto
+            {
+                IsVerified = true
+            };
+            return new ApiResponse<VerifyEmailResponseDto>(200, response, "Email verified successfully.");
+        }
+
+        public async Task<ApiResponse<PasswordResetResponseDto>> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto)
+        {
+            var validator = new ForgotPasswordDtoValidator();
+            var validationResult = validator.Validate(forgotPasswordDto);
+
+            if (!validationResult.IsValid)
+            {
+                return new ApiResponse<PasswordResetResponseDto>(400, null, "Validation failed.", validationResult.Errors.Select(e => e.ErrorMessage).ToList());
+            }
+
+            if (!await _identityService.EmailExistsAsync(forgotPasswordDto.Email))
+            {
+                var response = new PasswordResetResponseDto
+                {
+                    IsSuccess = true
+                };
+                return new ApiResponse<PasswordResetResponseDto>(200, response, "If your email exists in our system, you will receive a password reset link shortly.");
+            }
+
+            var resetToken = await _identityService.GeneratePasswordResetTokenAsync(forgotPasswordDto.Email);
+            if (string.IsNullOrEmpty(resetToken))
+            {
+                return new ApiResponse<PasswordResetResponseDto>(500, null, "Failed to generate password reset token.");
+            }
+
+            var userName = await _identityService.GetUserNameByEmailAsync(forgotPasswordDto.Email);
+            // TODO: use background job to send email
+            await _emailService.SendPasswordResetEmailAsync(forgotPasswordDto.Email, userName, resetToken);
+
+            var successResponse = new PasswordResetResponseDto
+            {
+                IsSuccess = true
+            };
+            return new ApiResponse<PasswordResetResponseDto>(200, successResponse, "If your email exists in our system, you will receive a password reset link shortly.");
+        }
+
+        public async Task<ApiResponse<PasswordResetResponseDto>> ResetPasswordAsync(ResetPasswordDto resetPasswordDto)
+        {
+            var validator = new ResetPasswordDtoValidator();
+            var validationResult = validator.Validate(resetPasswordDto);
+
+            if (!validationResult.IsValid)
+            {
+                return new ApiResponse<PasswordResetResponseDto>(400, null, "Validation failed.", validationResult.Errors.Select(e => e.ErrorMessage).ToList());
+            }
+
+            var isReset = await _identityService.ResetPasswordAsync(
+                resetPasswordDto.Email,
+                resetPasswordDto.Token,
+                resetPasswordDto.NewPassword);
+
+            if (!isReset)
+            {
+                return new ApiResponse<PasswordResetResponseDto>(400, null, "Password reset failed. Invalid token or email.");
+            }
+
+            var response = new PasswordResetResponseDto
+            {
+                IsSuccess = true
+            };
+            return new ApiResponse<PasswordResetResponseDto>(200, response, "Password reset successfully. You can now login with your new password.");
+        }
+
+        public async Task<ApiResponse<AuthResponseDto>> GoogleLoginAsync(ClaimsPrincipal principal)
+        {
+            var email = principal.FindFirstValue(ClaimTypes.Email);
+            var googleId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            var firstName = principal.FindFirstValue(ClaimTypes.GivenName);
+            var lastName = principal.FindFirstValue(ClaimTypes.Surname);
+
+            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(googleId))
+            {
+                return new ApiResponse<AuthResponseDto>(400, null, "Failed to retrieve user information from Google.");
+            }
+
+            var userName = await GetUserNameByProviderAsync("Google", googleId);
+
+            if (userName == null)
+            {
+                if (await EmailExistsAsync(email))
+                {
+                    return new ApiResponse<AuthResponseDto>(400, null, "An account with this email already exists. Please login with your password.");
+                }
+
+                userName = email.Split('@')[0]; // assuming username is the part before '@'
+                var createResult = await CreateExternalUserAsync(email, userName, firstName ?? "", lastName ?? "", "Google", googleId);
+                if (!createResult.Success)
+                {
+                    return new ApiResponse<AuthResponseDto>(400, null, "Failed to create user.");
+                }
+            }
+
+            var result = await GenerateAuthResponseForExternalLoginAsync(userName, email);
+            _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", result.RefreshToken!, result.RefreshTokenExpiresOn);
+
+            return new ApiResponse<AuthResponseDto>(200, result, "Login successful.");
+        }
+
+        public async Task<string?> GetUserNameByProviderAsync(string provider, string providerKey)
+        {
+            return await _identityService.GetUserNameByProviderAsync(provider, providerKey);
+        }
+
+        public async Task<bool> EmailExistsAsync(string email)
+        {
+            return await _identityService.EmailExistsAsync(email);
+        }
+
+        public async Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string userName, string firstName, string lastName, string provider, string providerKey)
+        {
+            var result = await _identityService.CreateExternalUserAsync(email, userName, firstName, lastName, provider, providerKey);
+            
+            if (result.Success)
+            {
+                // Add default role to the new user
+                var roleErrors = await _identityService.AddToRoleAsync(userName, DefaultUserRole);
+                if (roleErrors.Any())
+                {
+                    return (false, roleErrors);
+                }
+            }
+            
+            return result;
+        }
+
+        public async Task<AuthResponseDto> GenerateAuthResponseForExternalLoginAsync(string userName, string email)
+        {
+            var jwtToken = await _jwtTokenService.CreateTokenAsync(userName);
+            var refreshTokenResult = await _jwtTokenService.CreateRefreshTokenAsync(userName);
+
+            var (refreshToken, refreshTokenExpiry) = refreshTokenResult.Value;
+
+            return new AuthResponseDto
+            {
+                IsAuthenticated = true,
+                Token = jwtToken,
+                RefreshToken = refreshToken,
+                RefreshTokenExpiresOn = refreshTokenExpiry,
+                UserName = userName,
+                Email = email
+            };
+        }
+
+        // Private methods after public
         private async Task<AuthResponseDto?> ValidateRegistrationAsync(RegisterDto registerDto)
         {
             var validator = new RegisterDtoValidator();
@@ -47,8 +246,7 @@ namespace Innova.Application.Services.Implementations
             {
                 return new AuthResponseDto
                 {
-                    Message = "Registration failed.",
-                    Errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList(),
+                    IsAuthenticated = false,
                 };
             }
 
@@ -56,7 +254,7 @@ namespace Innova.Application.Services.Implementations
             {
                 return new AuthResponseDto
                 {
-                    Message = "Email already in use.",
+                    IsAuthenticated = false,
                 };
             }
 
@@ -64,7 +262,7 @@ namespace Innova.Application.Services.Implementations
             {
                 return new AuthResponseDto
                 {
-                    Message = "Username already in use.",
+                    IsAuthenticated = false,
                 };
             }
 
@@ -85,8 +283,7 @@ namespace Innova.Application.Services.Implementations
             {
                 return new AuthResponseDto
                 {
-                    Message = "User creation failed.",
-                    Errors = userCreationErrors
+                    IsAuthenticated = false,
                 };
             }
 
@@ -95,8 +292,7 @@ namespace Innova.Application.Services.Implementations
             {
                 return new AuthResponseDto
                 {
-                    Message = "Assigning role failed.",
-                    Errors = roleAssignmentErrors
+                    IsAuthenticated = false,
                 };
             }
 
@@ -108,7 +304,7 @@ namespace Innova.Application.Services.Implementations
             var confirmationToken = await _identityService.GenerateEmailConfirmationTokenAsync(email);
             if (!string.IsNullOrEmpty(confirmationToken))
             {
-                await _emailService.SendEmailConfirmationAsync(email, userName, confirmationToken);
+                await _emailService.SendRegisterationEmailConfirmationAsync(email, userName, confirmationToken);
             }
         }
 
@@ -121,36 +317,13 @@ namespace Innova.Application.Services.Implementations
 
             return new AuthResponseDto
             {
-                Message = "Registration successful. Please check your email to verify your account.",
                 IsAuthenticated = true,
                 Token = jwtToken,
                 RefreshToken = refreshToken,
                 RefreshTokenExpiresOn = refreshTokenExpiry,
                 UserName = userName,
-                Email = email,
+                Email = email
             };
-        }
-
-        public async Task<AuthResponseDto> LoginAsync(LoginDto loginDto)
-        {
-            // Validate user credentials
-            if (!await _identityService.ValidateUserCredentialsAsync(loginDto.Email, loginDto.Password))
-            {
-                return new AuthResponseDto
-                {
-                    Message = "Invalid email or password.",
-                };
-            }
-
-            if(!await _identityService.IsEmailConfirmedAsync(loginDto.Email))
-            {
-                return new AuthResponseDto
-                {
-                    Message = "Email is not confirmed. Please verify your email before logging in.",
-                };
-            }
-
-            return await CreateAuthResponseForLoginAsync(loginDto);
         }
 
         private async Task<AuthResponseDto> CreateAuthResponseForLoginAsync(LoginDto loginDto)
@@ -160,26 +333,13 @@ namespace Innova.Application.Services.Implementations
             var refreshToken = await _jwtTokenService.GetActiveRefreshToken(loginDto.Email);
             return new AuthResponseDto
             {
-                Message = "Login successful.",
                 IsAuthenticated = true,
                 Token = jwtToken,
                 RefreshToken = refreshToken?.Item1,
                 RefreshTokenExpiresOn = refreshToken?.Item2 ?? DateTime.UtcNow.AddDays(7),
                 UserName = userName,
-                Email = loginDto.Email,
+                Email = loginDto.Email
             };
-        }
-
-        public async Task<AuthResponseDto> RefreshToken(string token)
-        {
-            if (!await _jwtTokenService.ValidateRefreshTokenAsync(token))
-            {
-                return new AuthResponseDto
-                {
-                    Message = "Invalid refresh token.",
-                };
-            }
-            return await GenerateAuthResponseFromRefreshTokenAsync(token);
         }
 
         private async Task<AuthResponseDto> GenerateAuthResponseFromRefreshTokenAsync(string token)
@@ -189,45 +349,11 @@ namespace Innova.Application.Services.Implementations
             var refreshTokenExperationDate = await _jwtTokenService.GetRefreshTokenExpirationDate(token);
             return new AuthResponseDto
             {
-                Message = "Token refreshed successfully.",
                 IsAuthenticated = true,
                 Token = newJwtToken,
                 RefreshToken = token,
                 RefreshTokenExpiresOn = refreshTokenExperationDate,
-                UserName = userName,
-            };
-        }
-
-        public async Task<VerifyEmailResponseDto> VerifyEmailAsync(VerifyEmailDto verifyEmailDto)
-        {
-            var validator = new VerifyEmailDtoValidator();
-            var validationResult = validator.Validate(verifyEmailDto);
-
-            if (!validationResult.IsValid)
-            {
-                return new VerifyEmailResponseDto
-                {
-                    IsVerified = false,
-                    Message = "Validation failed.",
-                    Errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList(),
-                };
-            }
-
-            var isConfirmed = await _identityService.ConfirmEmailAsync(verifyEmailDto.Email, verifyEmailDto.Token);
-
-            if (!isConfirmed)
-            {
-                return new VerifyEmailResponseDto
-                {
-                    IsVerified = false,
-                    Message = "Email verification failed. Invalid token or email.",
-                };
-            }
-
-            return new VerifyEmailResponseDto
-            {
-                IsVerified = true,
-                Message = "Email verified successfully.",
+                UserName = userName
             };
         }
     }

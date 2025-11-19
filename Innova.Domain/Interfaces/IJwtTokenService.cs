@@ -8,5 +8,6 @@
         Task<bool> ValidateRefreshTokenAsync(string refreshToken);
         Task<string> GetUserUserNameFromRefreshTokenAsync(string token);
         Task<DateTime> GetRefreshTokenExpirationDate(string token);
+        void SetTokenCookieAsHttpOnly(string cookieName, string token, DateTime expiresOn);
     }
 }
