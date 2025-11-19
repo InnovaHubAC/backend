@@ -17,4 +17,6 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
     
     public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
     public DbSet<Department> Departments { get; set; }
+    public DbSet<Idea> Ideas { get; set; } = null!;
+
 }

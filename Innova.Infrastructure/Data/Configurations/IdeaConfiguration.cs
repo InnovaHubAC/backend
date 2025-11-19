@@ -5,6 +5,8 @@ namespace Innova.Infrastructure.Data.Configurations
     {
         public void Configure(EntityTypeBuilder<Idea> builder)
         {
+            builder.ToTable("Ideas");
+
             builder.HasKey(i => i.Id);
 
             builder.Property(i => i.Title)
