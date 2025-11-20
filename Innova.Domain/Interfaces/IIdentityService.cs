@@ -16,6 +16,8 @@ namespace Innova.Domain.Interfaces
         Task<string> GenerateEmailConfirmationTokenAsync(string email);
         Task<bool> ConfirmEmailAsync(string email, string token);
         Task<bool> IsEmailConfirmedAsync(string email);
+        Task<bool> UserExistsAsync(string id);
+        Task<(string FirstName, string LastName, string UserName)?> GetUserForIdeaAsync(string userId);
         Task<string> GeneratePasswordResetTokenAsync(string email);
         Task<bool> ResetPasswordAsync(string email, string token, string newPassword);
         Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string userName, string firstName, string lastName, string provider, string providerKey);

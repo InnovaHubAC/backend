@@ -1,7 +1,4 @@
-﻿using System.Linq.Expressions;
-
-
-namespace Innova.Infrastructure.Services;
+﻿namespace Innova.Infrastructure.Services;
 
 public class IdentityService : IIdentityService
 {
@@ -162,6 +159,23 @@ public class IdentityService : IIdentityService
             return false;
 
         return await _userManager.IsEmailConfirmedAsync(user);
+    }
+
+    public async Task<bool> UserExistsAsync(string id)
+    {
+        return await _userManager.FindByIdAsync(id) is not null;
+    }
+    public async Task<(string FirstName, string LastName, string UserName)?> GetUserForIdeaAsync(string userId)
+    {
+        var user = await _userManager.Users
+            .Where(u => u.Id == userId)
+            .Select(u => new { u.FirstName, u.LastName, u.UserName })
+            .FirstOrDefaultAsync();
+
+        if (user == null)
+            return null;
+
+        return (user.FirstName!, user.LastName!, user.UserName!);
     }
 
     public async Task<string> GeneratePasswordResetTokenAsync(string email)

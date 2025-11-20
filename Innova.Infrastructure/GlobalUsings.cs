@@ -17,6 +17,8 @@ global using Innova.Infrastructure.Services;
 global using MailKit.Net.Smtp;
 global using MailKit.Security;
 global using MimeKit;
+global using System.Linq.Expressions;
+global using System.Security.Claims;
 global using Microsoft.IdentityModel.Tokens;
 global using System.IdentityModel.Tokens.Jwt;
 global using System.Security.Claims;

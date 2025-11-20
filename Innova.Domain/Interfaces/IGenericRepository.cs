@@ -10,4 +10,5 @@ public interface IGenericRepository<T> where T : BaseEntity
     Task<T> AddAsync(T entity);
     void Update(T entity);
     Task DeleteAsync(T entity);
+    Task<T?> GetByIdWithIncludesAsync(int id, List<Expression<Func<T, object>>>? includeProperties);
 }
