@@ -1,4 +1,5 @@
 ﻿using Innova.Application.DTOs.Attachment;
+using Innova.Application.DTOs.Users;
 using Innova.Domain.Enums;
 
 namespace Innova.Application.DTOs.Idea
@@ -13,9 +14,6 @@ namespace Innova.Application.DTOs.Idea
         public DateTime? UpdatedAt { get; set; }
         public List<AttachmentDto> IdeaAttachments { get; set; } = null!;
         public DepartmentDto Department { get; set; } = null!;
-        public string UserName { get; set; } = string.Empty;
-        public string FirstName { get; set; } = string.Empty;
-        public string LastName { get; set; } = string.Empty;
-        public string UserId { get; set; } = string.Empty;
+        public UserDto User { get; set; } = null!;
     }
 }
