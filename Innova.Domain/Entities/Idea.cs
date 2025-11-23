@@ -12,6 +12,7 @@
         public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
         public ICollection<Attachment>? Attachments { get; set; } = new List<Attachment>();
+        public ICollection<Comment> Comments { get; set; } = new List<Comment>();
         public Department Department { get; set; } = null!;
     }
 }
