@@ -633,7 +633,7 @@
         }
       }
     },
-    "/api/Comments/comments/{parentId}": {
+    "/api/Comments/{parentId}/replies": {
       "get": {
         "tags": [
           "Comments"
@@ -730,7 +730,7 @@
         }
       }
     },
-    "/api/Comments/comments/{id}": {
+    "/api/Comments/{id}": {
       "put": {
         "tags": [
           "Comments"

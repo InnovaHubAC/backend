@@ -15,7 +15,7 @@ public class CommentsController : ControllerBase
         _commentService = commentService;
     }
 
-    [HttpGet("comments/{parentId}")]
+    [HttpGet("{parentId}/replies")]
     [Authorize]
     public async Task<ActionResult<ApiResponse<IEnumerable<CommentDto>>>> GetReplies(int parentId)
     {
@@ -23,7 +23,7 @@ public class CommentsController : ControllerBase
         return Ok(result);
     }
 
-    [HttpPost("comments/{parentId}")]
+    [HttpPost("{parentId}/replies")]
     [Authorize]
     public async Task<ActionResult<ApiResponse<CommentDto>>> ReplyToComment(int parentId, [FromBody] CreateCommentDto createCommentDto)
     {
@@ -39,7 +39,7 @@ public class CommentsController : ControllerBase
         };
     }
 
-    [HttpPut("comments/{id}")]
+    [HttpPut("{id}")]
     [Authorize]
     public async Task<ActionResult<ApiResponse<bool>>> UpdateComment(int id, [FromBody] UpdateCommentDto updateCommentDto)
     {
@@ -56,7 +56,7 @@ public class CommentsController : ControllerBase
         };
     }
 
-    [HttpDelete("comments/{id}")]
+    [HttpDelete("{id}")]
     [Authorize]
     public async Task<ActionResult<ApiResponse<bool>>> DeleteComment(int id)
     {
