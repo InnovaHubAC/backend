@@ -1,9 +1,4 @@
-﻿using Innova.Application.DTOs.Attachment;
-using Innova.Application.DTOs.Common;
-using Innova.Application.DTOs.Idea;
-using Innova.Application.Validations.Idea;
-using System.Linq.Expressions;
-using AttachmentDto = Innova.Application.DTOs.Attachment.AttachmentDto;
+﻿using AttachmentDto = Innova.Application.DTOs.Attachment.AttachmentDto;
 
 namespace Innova.Application.Services.Implementations
 {
