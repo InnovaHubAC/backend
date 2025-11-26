@@ -1,7 +1,4 @@
-﻿using Innova.Application.DTOs.Attachment;
-using Innova.Application.DTOs.Idea;
-using Innova.Application.Validations.Idea;
-using System.Linq.Expressions;
+﻿using AttachmentDto = Innova.Application.DTOs.Attachment.AttachmentDto;
 
 namespace Innova.Application.Services.Implementations
 {
@@ -241,14 +238,14 @@ namespace Innova.Application.Services.Implementations
 
             var ideaDetailsDto = idea.Adapt<IdeaDetailsDto>();
             ideaDetailsDto.IdeaAttachments = idea.Attachments!.Adapt<List<AttachmentDto>>();
-            ideaDetailsDto.UserName = user.Value.UserName;
-            ideaDetailsDto.FirstName = user.Value.FirstName;
-            ideaDetailsDto.LastName = user.Value.LastName;
-            ideaDetailsDto.UserId = idea.AppUserId;
+            ideaDetailsDto.User.UserName = user.Value.UserName;
+            ideaDetailsDto.User.FirstName = user.Value.FirstName;
+            ideaDetailsDto.User.LastName = user.Value.LastName;
+            ideaDetailsDto.User.Id = idea.AppUserId;
             return ApiResponse<IdeaDetailsDto>.Success(ideaDetailsDto);
         }
 
-        public async Task<ApiResponse<bool>> DeleteIdeaAsync(int ideaId,string userId)
+        public async Task<ApiResponse<bool>> DeleteIdeaAsync(int ideaId, string userId)
         {
             var idea = await _unitOfWork.IdeaRepository.GetByIdWithIncludesAsync(ideaId, new()
             {
@@ -269,6 +266,35 @@ namespace Innova.Application.Services.Implementations
             // Delete attachments from storage
             DeleteAttachmentsFromStorage(idea.Attachments?.ToList());
             return ApiResponse<bool>.Success(true);
+        }
+
+        public async Task<ApiResponse<PaginationDto<IdeaDetailsDto>>>
+         GetIdeasByUserIdAsync(string userId, PaginationParams paginationParams)
+        {
+            // TODO: rewrite this to utilize the query syntax to avoid looping and making two queries
+            var spec = new GetIdeasByUserIdSpecification(userId);
+            var ideas = await _unitOfWork.IdeaRepository.ListAsync(spec);
+
+            var user = await _identityService.GetUserForIdeaAsync(userId);
+            if (user == null)
+            {
+                return ApiResponse<PaginationDto<IdeaDetailsDto>>.Fail(404, "User not found");
+            }
+
+            var dtos = ideas.Adapt<IReadOnlyList<IdeaDetailsDto>>();
+
+            foreach (var dto in dtos)
+            {
+                dto.User.UserName = user.Value.UserName;
+                dto.User.FirstName = user.Value.FirstName;
+                dto.User.LastName = user.Value.LastName;
+                dto.User.Id = userId;
+            }
+
+            var pagination = new PaginationDto<IdeaDetailsDto>(paginationParams.PageIndex,
+             paginationParams.PageSize, ideas.Count, dtos);
+
+            return ApiResponse<PaginationDto<IdeaDetailsDto>>.Success(pagination);
         }
     }
 }

@@ -1,8 +1,4 @@
-﻿using System.Security.Claims;
-using Innova.Application.DTOs.Auth;
-using Innova.Application.Validations.Auth;
-
-namespace Innova.Application.Services.Implementations
+﻿namespace Innova.Application.Services.Implementations
 {
     public class AuthService : IAuthService
     {

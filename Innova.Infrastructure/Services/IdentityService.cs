@@ -235,5 +235,107 @@ public class IdentityService : IIdentityService
         var user = await _userManager.FindByLoginAsync(provider, providerKey);
         return user?.UserName;
     }
+
+    public async Task<(IReadOnlyList<(string Id, string? UserName, string? Email, string? FirstName,
+     string? LastName, DateTime? DateOfBirth, bool EmailConfirmed)> Items, int TotalCount)>
+     GetUsersPagedAsync(int pageIndex, int pageSize, string? sort)
+    {
+        var query = _userManager.Users.AsQueryable();
+
+        var totalCount = await query.CountAsync();
+
+        if (!string.IsNullOrEmpty(sort))
+        {
+            switch (sort.ToLower())
+            {
+                case "usernameasc":
+                    query = query.OrderBy(u => u.UserName);
+                    break;
+                case "usernamedesc":
+                    query = query.OrderByDescending(u => u.UserName);
+                    break;
+                case "emailasc":
+                    query = query.OrderBy(u => u.Email);
+                    break;
+                case "emaildesc":
+                    query = query.OrderByDescending(u => u.Email);
+                    break;
+                default:
+                    query = query.OrderBy(u => u.UserName);
+                    break;
+            }
+        }
+        else
+        {
+            query = query.OrderBy(u => u.UserName);
+        }
+
+        var items = await query
+            .Skip((pageIndex - 1) * pageSize)
+            .Take(pageSize)
+            .Select(u => new
+            {
+                u.Id,
+                u.UserName,
+                u.Email,
+                u.FirstName,
+                u.LastName,
+                u.DateOfBirth,
+                u.EmailConfirmed
+            })
+            .ToListAsync();
+
+        var resultItems = items.Select(u => (u.Id, u.UserName, u.Email, u.FirstName,
+         u.LastName, u.DateOfBirth, u.EmailConfirmed)).ToList();
+
+        return (resultItems, totalCount);
+    }
+
+    public async Task<bool> UpdateUserAsync(string userId, string firstName, string lastName, DateTime? dateOfBirth)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null) return false;
+
+        user.FirstName = firstName;
+        user.LastName = lastName;
+        
+        if(user.DateOfBirth.HasValue)
+            user.DateOfBirth = dateOfBirth;
+
+        var result = await _userManager.UpdateAsync(user);
+        return result.Succeeded;
+    }
+
+    public async Task<bool> DeleteUserAsync(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null) return false;
+
+        var result = await _userManager.DeleteAsync(user);
+        return result.Succeeded;
+    }
+
+    public async Task<(string Id, string? UserName, string? Email, string? FirstName,
+     string? LastName, DateTime? DateOfBirth, bool EmailConfirmed)?> GetUserByIdAsync(string userId)
+    {
+        var user = await _userManager.Users
+            .Where(u => u.Id == userId)
+            .Select(u => new
+            {
+                u.Id,
+                u.UserName,
+                u.Email,
+                u.FirstName,
+                u.LastName,
+                u.DateOfBirth,
+                u.EmailConfirmed
+            })
+            .FirstOrDefaultAsync();
+
+        if (user == null) return null;
+
+        return (user.Id, user.UserName, user.Email, user.FirstName, user.LastName,
+         user.DateOfBirth, user.EmailConfirmed);
+    }
 }
 

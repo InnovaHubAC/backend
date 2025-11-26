@@ -18,6 +18,14 @@ namespace Innova.Domain.Interfaces
         Task<bool> IsEmailConfirmedAsync(string email);
         Task<bool> UserExistsAsync(string id);
         Task<(string FirstName, string LastName, string UserName)?> GetUserForIdeaAsync(string userId);
+
+        // TODO: this method should recommend users, not just returning a page of users
+        Task<(IReadOnlyList<(string Id, string? UserName, string? Email, string? FirstName, string?
+            LastName, DateTime? DateOfBirth, bool EmailConfirmed)> Items, int TotalCount)>
+        GetUsersPagedAsync(int pageIndex, int pageSize, string? sort);
+        Task<bool> UpdateUserAsync(string userId, string firstName, string lastName, DateTime? dateOfBirth);
+        Task<bool> DeleteUserAsync(string userId);
+        Task<(string Id, string? UserName, string? Email, string? FirstName, string? LastName, DateTime? DateOfBirth, bool EmailConfirmed)?> GetUserByIdAsync(string userId);
         Task<string> GeneratePasswordResetTokenAsync(string email);
         Task<bool> ResetPasswordAsync(string email, string token, string newPassword);
         Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string userName, string firstName, string lastName, string provider, string providerKey);
