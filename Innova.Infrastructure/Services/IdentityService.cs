@@ -298,7 +298,9 @@ public class IdentityService : IIdentityService
 
         user.FirstName = firstName;
         user.LastName = lastName;
-        user.DateOfBirth = dateOfBirth;
+        
+        if(user.DateOfBirth.HasValue)
+            user.DateOfBirth = dateOfBirth;
 
         var result = await _userManager.UpdateAsync(user);
         return result.Succeeded;

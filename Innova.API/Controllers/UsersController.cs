@@ -10,15 +10,15 @@ using Innova.Domain.Interfaces;
 namespace Innova.API.Controllers;
 
 [ApiController]
-[Route("api/v1/[controller]")]
+[Route("api/[controller]")]
 public class UsersController : ControllerBase
 {
-    private readonly IIdentityService _identityService;
+    private readonly IUsersService _usersService;
     private readonly IIdeaService _ideaService;
 
-    public UsersController(IIdentityService identityService, IIdeaService ideaService)
+    public UsersController(IUsersService usersService, IIdeaService ideaService)
     {
-        _identityService = identityService;
+        _usersService = usersService;
         _ideaService = ideaService;
     }
 
@@ -26,32 +26,14 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<PaginationDto<UserDto>>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<PaginationDto<UserDto>>>> GetAllUsers([FromQuery] PaginationParams paginationParams)
     {
-        var (items, totalCount) = await _identityService.GetUsersPagedAsync(
-            paginationParams.PageIndex,
-            paginationParams.PageSize,
-            paginationParams.Sort
-        );
-
-        // I have to do this due to the external service returning tuples
-        var dtos = items.Select(u => new UserDto
-        {
-            Id = u.Id,
-            UserName = u.UserName ?? "",
-            Email = u.Email ?? "",
-            FirstName = u.FirstName ?? "",
-            LastName = u.LastName ?? "",
-            DateOfBirth = u.DateOfBirth,
-        }).ToList();
-
-        var pagination = new PaginationDto<UserDto>(paginationParams.PageIndex, paginationParams.PageSize, totalCount, dtos);
-
-        return Ok(new ApiResponse<PaginationDto<UserDto>>(200, pagination, "Users retrieved successfully"));
+        var response = await _usersService.GetUsersPagedAsync(paginationParams.PageIndex, paginationParams.PageSize, paginationParams.Sort);
+        return Ok(response);
     }
 
     [HttpGet("{id}/ideas")]
-    [ProducesResponseType(typeof(ApiResponse<PaginationDto<IReadOnlyList<IdeaDetailsDto>>>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<PaginationDto<IReadOnlyList<IdeaDetailsDto>>>), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<PaginationDto<IReadOnlyList<IdeaDetailsDto>>>>> GetUserIdeas(string id, PaginationParams paginationParams)
+    [ProducesResponseType(typeof(ApiResponse<PaginationDto<IdeaDetailsDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<PaginationDto<IdeaDetailsDto>>), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse<PaginationDto<IdeaDetailsDto>>>> GetUserIdeas(string id, [FromQuery] PaginationParams paginationParams)
     {
         var result = await _ideaService.GetIdeasByUserIdAsync(id, paginationParams);
         if (result.StatusCode == 404) return NotFound(result);
@@ -63,7 +45,7 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<bool>>> UpdateUser(string id, [FromBody] UpdateUserDto updateDto)
+    public async Task<ActionResult<ApiResponse<UpdatedDto>>> UpdateUser(string id, [FromBody] UpdateUserDto updateDto)
     {
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
@@ -72,22 +54,31 @@ public class UsersController : ControllerBase
             return Forbid();
         }
 
-        var result = await _identityService.UpdateUserAsync(id, updateDto.FirstName, updateDto.LastName, updateDto.DateOfBirth);
-        
-        if (!result) return NotFound(ApiResponse<bool>.Fail(404, "User not found or update failed"));
+        var response = await _usersService.UpdateUserAsync(id, updateDto.FirstName, updateDto.LastName, updateDto.DateOfBirth);
 
-        return Ok(ApiResponse<bool>.Success(true));
+        // TODO: I think we can return StatusCode always instead of switch case
+        return response.StatusCode switch
+        {
+            200 => Ok(response),
+            400 => BadRequest(response),
+            404 => NotFound(response),
+            _ => StatusCode(response.StatusCode, response)
+        };
     }
 
     [HttpDelete("{id}")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<bool>>> DeleteUser(string id)
+    public async Task<ActionResult<ApiResponse<DeletedDto>>> DeleteUser(string id)
     {
-        var result = await _identityService.DeleteUserAsync(id);
-        if (!result) return NotFound(ApiResponse<bool>.Fail(404, "User not found or delete failed"));
-
-        return Ok(ApiResponse<bool>.Success(true));
+        var response = await _usersService.DeleteUserAsync(id);
+        
+        return response.StatusCode switch
+        {
+            200 => Ok(response),
+            404 => NotFound(response),
+            _ => StatusCode(response.StatusCode, response)
+        };
     }
 }

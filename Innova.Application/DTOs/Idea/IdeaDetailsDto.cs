@@ -1,6 +1,7 @@
 ﻿using Innova.Application.DTOs.Attachment;
 using Innova.Application.DTOs.Users;
 using Innova.Domain.Enums;
+using AttachmentDto = Innova.Application.DTOs.Attachment.AttachmentDto;
 
 namespace Innova.Application.DTOs.Idea
 {
