@@ -1,7 +1,4 @@
-﻿using Innova.Application.DTOs.Common;
-using Innova.Application.DTOs.Idea;
-
-namespace Innova.Application.Validations.Idea
+﻿namespace Innova.Application.DTOs.Idea
 {
     public class UpdateIdeaDto : BaseIdeaDto
     {
