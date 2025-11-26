@@ -17,23 +17,19 @@
         // Public methods first
         public async Task<ApiResponse<AuthResponseDto>> RegisterAsync(RegisterDto registerDto)
         {
-            var validationError = await ValidateRegistrationAsync(registerDto);
-            if (validationError != null)
-            {
-                return new ApiResponse<AuthResponseDto>(400, null, validationError.Message, validationError.Errors);
-            }
+            var registrationErrors = await ValidateRegistrationAsync(registerDto);
+            if (registrationErrors.Any())
+                return ApiResponse<AuthResponseDto>.Fail(400, "Validation failed.", registrationErrors);
 
             var userCreationError = await CreateUserWithRoleAsync(registerDto);
             if (userCreationError != null)
-            {
-                return new ApiResponse<AuthResponseDto>(400, null, userCreationError.Message, userCreationError.Errors);
-            }
+                return ApiResponse<AuthResponseDto>.Fail(503, "User creation failed.", userCreationError);
 
             // TODO: use background job to send email
             await SendEmailConfirmationAsync(registerDto.Email, registerDto.UserName);
 
             var response = await GenerateAuthResponseAsync(registerDto.UserName, registerDto.Email);
-            return new ApiResponse<AuthResponseDto>(201, response, "Registration successful. Please check your email to verify your account.");
+            return ApiResponse<AuthResponseDto>.Success(response);
         }
 
         public async Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginDto loginDto)
@@ -233,39 +229,35 @@
         }
 
         // Private methods after public
-        private async Task<AuthResponseDto?> ValidateRegistrationAsync(RegisterDto registerDto)
+        private async Task<List<string>> ValidateRegistrationAsync(RegisterDto registerDto)
         {
+            List<string> errors = new List<string>();
+
             var validator = new RegisterDtoValidator();
             var validationResult = validator.Validate(registerDto);
 
             if (!validationResult.IsValid)
             {
-                return new AuthResponseDto
-                {
-                    IsAuthenticated = false,
-                };
+                errors.AddRange(validationResult.Errors.Select(e => e.ErrorMessage));
+                return errors;
             }
 
             if (await _identityService.EmailExistsAsync(registerDto.Email))
             {
-                return new AuthResponseDto
-                {
-                    IsAuthenticated = false,
-                };
+                errors.Add("Email is already registered.");
+                return errors;
             }
 
             if (await _identityService.UserNameExistsAsync(registerDto.UserName))
             {
-                return new AuthResponseDto
-                {
-                    IsAuthenticated = false,
-                };
+                errors.Add("Username is already taken.");
+                return errors;
             }
 
-            return null;
+            return errors;
         }
 
-        private async Task<AuthResponseDto?> CreateUserWithRoleAsync(RegisterDto registerDto)
+        private async Task<List<string>> CreateUserWithRoleAsync(RegisterDto registerDto)
         {
             var userCreationErrors = await _identityService.CreateUserAsync(
                 registerDto.FirstName,
@@ -276,23 +268,13 @@
                 registerDto.Password);
 
             if (userCreationErrors.Any())
-            {
-                return new AuthResponseDto
-                {
-                    IsAuthenticated = false,
-                };
-            }
+                return userCreationErrors;
 
             var roleAssignmentErrors = await _identityService.AddToRoleAsync(registerDto.UserName, DefaultUserRole);
             if (roleAssignmentErrors.Any())
-            {
-                return new AuthResponseDto
-                {
-                    IsAuthenticated = false,
-                };
-            }
+                return roleAssignmentErrors;
 
-            return null;
+            return new();
         }
 
         private async Task SendEmailConfirmationAsync(string email, string userName)

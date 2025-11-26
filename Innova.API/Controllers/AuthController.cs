@@ -1,7 +1,5 @@
-﻿using Innova.Application.DTOs.Auth;
-using Microsoft.AspNetCore.Authentication;
+﻿using Innova.Domain.Interfaces;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Innova.Domain.Interfaces;
 
 namespace Innova.API.Controllers
 {
@@ -23,6 +21,7 @@ namespace Innova.API.Controllers
         [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status503ServiceUnavailable)]
         public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Register(RegisterDto registerDto)
         {
             var response = await _authService.RegisterAsync(registerDto);
@@ -137,7 +136,7 @@ namespace Innova.API.Controllers
         public async Task<ActionResult<ApiResponse<AuthResponseDto>>> GoogleCallback([FromQuery] string? returnUrl = null)
         {
             var info = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            
+
             if (!info.Succeeded)
             {
                 return Unauthorized(ApiResponse<AuthResponseDto>.Fail(401, "Google authentication failed."));
@@ -149,9 +148,9 @@ namespace Innova.API.Controllers
             {
                 return BadRequest(apiResponse);
             }
-            
+
             // TODO: Must be changed to (only) redirect to returnUrl since this may return json response
-            if(string.IsNullOrEmpty(returnUrl))
+            if (string.IsNullOrEmpty(returnUrl))
             {
                 return Ok(apiResponse);
             }
