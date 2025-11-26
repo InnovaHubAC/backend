@@ -3,6 +3,8 @@ using Innova.API.Requests.Idea;
 using Innova.Application.DTOs;
 using Innova.Application.DTOs.Common;
 using Innova.Application.DTOs.Idea;
+using Innova.Application.DTOs.Comment;
+using Innova.Application.Services.Interfaces;
 using Innova.Application.Validations.Idea;
 using Mapster;
 using Microsoft.AspNetCore.Authorization;
@@ -16,10 +18,12 @@ namespace Innova.API.Controllers
     public class IdeasController : ControllerBase
     {
         private readonly IIdeaService _ideaService;
+        private readonly ICommentService _commentService;
 
-        public IdeasController(IIdeaService ideaService)
+        public IdeasController(IIdeaService ideaService, ICommentService commentService)
         {
             _ideaService = ideaService;
+            _commentService = commentService;
         }
 
         [HttpPost]
@@ -92,6 +96,30 @@ namespace Innova.API.Controllers
                 return Unauthorized(ApiResponse<bool>.Fail(401, "User not authenticated"));
             var result = await _ideaService.DeleteIdeaAsync(ideaId, userId);
             return StatusCode(result.StatusCode, result);
+        }
+
+        [HttpGet("{ideaId}/comments")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<IEnumerable<CommentDto>>>> GetCommentsByIdeaId(int ideaId)
+        {
+            var result = await _commentService.GetCommentsByIdeaIdAsync(ideaId);
+            return Ok(result);
+        }
+
+        [HttpPost("{ideaId}/comments")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<CommentDto>>> CreateComment(int ideaId, [FromBody] CreateCommentDto createCommentDto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return Unauthorized();
+
+            var result = await _commentService.CreateCommentAsync(ideaId, createCommentDto, userId);
+            return result.StatusCode switch
+            {
+                200 => Ok(result),
+                404 => NotFound(result),
+                _ => StatusCode(result.StatusCode, result)
+            };
         }
 
     }

@@ -633,6 +633,200 @@
         }
       }
     },
+    "/api/Comments/{parentId}/replies": {
+      "get": {
+        "tags": [
+          "Comments"
+        ],
+        "parameters": [
+          {
+            "name": "parentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDtoIEnumerableApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDtoIEnumerableApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDtoIEnumerableApiResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Comments"
+        ],
+        "parameters": [
+          {
+            "name": "parentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommentDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommentDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDtoApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDtoApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDtoApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Comments/{id}": {
+      "put": {
+        "tags": [
+          "Comments"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCommentDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCommentDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCommentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanApiResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Comments"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Departments": {
       "get": {
         "tags": [
@@ -1474,14 +1668,99 @@
         }
       }
     },
-    "/api/Test/test": {
+    "/api/Ideas/{ideaId}/comments": {
       "get": {
         "tags": [
-          "Test"
+          "Ideas"
+        ],
+        "parameters": [
+          {
+            "name": "ideaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDtoIEnumerableApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDtoIEnumerableApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDtoIEnumerableApiResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Ideas"
+        ],
+        "parameters": [
+          {
+            "name": "ideaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommentDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommentDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDtoApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDtoApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDtoApiResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1895,6 +2174,109 @@
         },
         "additionalProperties": false
       },
+      "CommentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "content": {
+            "type": "string",
+            "nullable": true
+          },
+          "appUserId": {
+            "type": "string",
+            "nullable": true
+          },
+          "ideaId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "parentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CommentDtoApiResponse": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/CommentDto"
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CommentDtoIEnumerableApiResponse": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommentDto"
+            },
+            "nullable": true,
+            "readOnly": true
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateCommentDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateDepartmentDto": {
         "type": "object",
         "properties": {
@@ -2263,6 +2645,16 @@
         },
         "additionalProperties": false
       },
+      "UpdateCommentDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "UpdateDepartmentDto": {
         "type": "object",
         "properties": {
@@ -2438,6 +2830,19 @@
         },
         "additionalProperties": false
       }
+    },
+    "securitySchemes": {
+      "Bearer": {
+        "type": "http",
+        "description": "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
     }
-  }
+  },
+  "security": [
+    {
+      "Bearer": [ ]
+    }
+  ]
 }
