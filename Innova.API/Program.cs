@@ -1,6 +1,7 @@
 using Innova.API.Extensions;
 using Innova.Infrastructure.Extensions;
 using Innova.API.Middlewares;
+using Innova.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,5 +44,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();
