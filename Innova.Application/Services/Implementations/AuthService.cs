@@ -135,9 +135,11 @@
                 return new ApiResponse<PasswordResetResponseDto>(400, null, "Validation failed.", validationResult.Errors.Select(e => e.ErrorMessage).ToList());
             }
 
+            var decodedToken = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(resetPasswordDto.Token));
+
             var isReset = await _identityService.ResetPasswordAsync(
                 resetPasswordDto.Email,
-                resetPasswordDto.Token,
+                decodedToken,
                 resetPasswordDto.NewPassword);
 
             if (!isReset)
