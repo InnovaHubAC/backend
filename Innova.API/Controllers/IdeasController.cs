@@ -5,7 +5,6 @@ using Innova.Application.DTOs.Common;
 using Innova.Application.DTOs.Idea;
 using Innova.Application.DTOs.Comment;
 using Innova.Application.Services.Interfaces;
-using Innova.Application.Validations.Idea;
 using Mapster;
 using Microsoft.AspNetCore.Authorization;
 using System.IdentityModel.Tokens.Jwt;

@@ -1,8 +1,4 @@
-﻿using Innova.Application.DTOs.Common;
-using Innova.Application.DTOs.Idea;
-using Innova.Application.Validations.Idea;
-
-namespace Innova.Application.Services.Interfaces
+﻿namespace Innova.Application.Services.Interfaces
 {
     public interface IIdeaService
     {

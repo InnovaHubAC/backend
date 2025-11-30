@@ -1,6 +1,4 @@
-﻿using Innova.Application.Validations.Idea;
-
-namespace Innova.Application.DTOs.Idea
+﻿namespace Innova.Application.Validations.Idea
 {
     public class UpdateIdeaDtoValidator : AbstractValidator<UpdateIdeaDto>
     {

@@ -1,5 +1,3 @@
-using Innova.Application.Validations.Idea;
-
 namespace Innova.Application.MappingConfig;
 
 public class MappingConfig
