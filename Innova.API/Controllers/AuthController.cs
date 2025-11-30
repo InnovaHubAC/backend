@@ -26,11 +26,11 @@ namespace Innova.API.Controllers
         {
             var response = await _authService.RegisterAsync(registerDto);
 
-            if (!response.Data!.IsAuthenticated)
-                return BadRequest(response);
+            if (!response.IsAuthenticated)
+                return BadRequest(ApiResponse<AuthResponseDto>.Fail(400,response.Message,response.Errors));
 
-            _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", response.Data.RefreshToken!, response.Data.RefreshTokenExpiresOn);
-            return Ok(response);
+            _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", response.RefreshToken!, response.RefreshTokenExpiresOn);
+            return Ok(ApiResponse<AuthResponseDto>.Success(response));
 
         }
 
@@ -42,11 +42,12 @@ namespace Innova.API.Controllers
         public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Login(LoginDto loginDto)
         {
             var response = await _authService.LoginAsync(loginDto);
-            if (!response.Data!.IsAuthenticated)
-                return BadRequest(response);
 
-            _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", response.Data.RefreshToken!, response.Data.RefreshTokenExpiresOn);
-            return Ok(response);
+            if (!response.IsAuthenticated)
+                return BadRequest(ApiResponse<AuthResponseDto>.Fail(400, response.Message,response.Errors));
+
+            _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", response.RefreshToken!, response.RefreshTokenExpiresOn);
+            return Ok(ApiResponse<AuthResponseDto>.Success(response));
         }
 
         [HttpGet]

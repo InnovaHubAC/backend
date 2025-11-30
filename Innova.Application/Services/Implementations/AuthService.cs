@@ -15,38 +15,60 @@
         }
 
         // Public methods first
-        public async Task<ApiResponse<AuthResponseDto>> RegisterAsync(RegisterDto registerDto)
+        public async Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto)
         {
             var registrationErrors = await ValidateRegistrationAsync(registerDto);
             if (registrationErrors.Any())
-                return ApiResponse<AuthResponseDto>.Fail(400, "Validation failed.", registrationErrors);
+            {
+                return new AuthResponseDto
+                {
+                    IsAuthenticated = false,
+                    Message = "Registration failed.",
+                    Errors = registrationErrors
+                };
+            }
 
             var userCreationError = await CreateUserWithRoleAsync(registerDto);
-            if (userCreationError != null)
-                return ApiResponse<AuthResponseDto>.Fail(503, "User creation failed.", userCreationError);
+            if (userCreationError is not null && userCreationError.Any())
+            {
+                return new AuthResponseDto
+                {
+                    IsAuthenticated = false,
+                    Message = "User creation failed.",
+                    Errors = userCreationError
+                };
+            }
 
             // TODO: use background job to send email
             await SendEmailConfirmationAsync(registerDto.Email, registerDto.UserName);
 
             var response = await GenerateAuthResponseAsync(registerDto.UserName, registerDto.Email);
-            return ApiResponse<AuthResponseDto>.Success(response);
+            return response;
         }
 
-        public async Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginDto loginDto)
+        public async Task<AuthResponseDto> LoginAsync(LoginDto loginDto)
         {
             // Validate user credentials
             if (!await _identityService.ValidateUserCredentialsAsync(loginDto.Email, loginDto.Password))
             {
-                return new ApiResponse<AuthResponseDto>(400, null, "Invalid email or password.");
+                return new AuthResponseDto
+                {
+                    IsAuthenticated = false,
+                    Message = "Invalid email or password."
+                };
             }
 
-            if(!await _identityService.IsEmailConfirmedAsync(loginDto.Email))
+            if (!await _identityService.IsEmailConfirmedAsync(loginDto.Email))
             {
-                return new ApiResponse<AuthResponseDto>(400, null, "Email is not confirmed. Please verify your email before logging in.");
+                return new AuthResponseDto
+                {
+                    IsAuthenticated = false,
+                    Message = "Email is not confirmed. Please verify your email before logging in."
+                };
             }
 
             var response = await CreateAuthResponseForLoginAsync(loginDto);
-            return new ApiResponse<AuthResponseDto>(200, response, "Login successful.");
+            return response;
         }
 
         public async Task<ApiResponse<AuthResponseDto>> RefreshToken(string token)
@@ -196,7 +218,7 @@
         public async Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string userName, string firstName, string lastName, string provider, string providerKey)
         {
             var result = await _identityService.CreateExternalUserAsync(email, userName, firstName, lastName, provider, providerKey);
-            
+
             if (result.Success)
             {
                 // Add default role to the new user
@@ -206,7 +228,7 @@
                     return (false, roleErrors);
                 }
             }
-            
+
             return result;
         }
 
