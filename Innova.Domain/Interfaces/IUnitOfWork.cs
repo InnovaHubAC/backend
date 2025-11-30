@@ -5,5 +5,7 @@ public interface IUnitOfWork : IDisposable
     IDepartmentRepository DepartmentRepository { get; }
     IIdeaRepository IdeaRepository { get; }
     IGenericRepository<Comment> CommentRepository { get; }
+    IConversationRepository ConversationRepository { get; }
+    IMessageRepository MessageRepository { get; }
     Task<int> CompleteAsync();
 }

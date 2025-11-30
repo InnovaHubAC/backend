@@ -36,5 +36,10 @@ public static class InfrastructureExtensions
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IFileStorageService, FileStorageService>();
+
+        // SignalR and Messaging services
+        services.AddSignalR();
+        // singleton for connection tracking (in-memory state)
+        services.AddSingleton<IUserConnectionService, UserConnectionService>();
     }
 }
