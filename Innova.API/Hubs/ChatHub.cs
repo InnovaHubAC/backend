@@ -73,6 +73,13 @@ public class ChatHub : Hub
         {
             // Send confirmation back to sender
             await Clients.Caller.SendAsync("MessageSent", result.Data);
+            
+            // Send message to receiver if they're online
+            var receiverConnections = await _userConnectionService.GetConnectionsAsync(receiverId);
+            foreach (var connectionId in receiverConnections)
+            {
+                await Clients.Client(connectionId).SendAsync("ReceiveMessage", result.Data);
+            }
         }
         else
         {
@@ -90,7 +97,22 @@ public class ChatHub : Hub
             return;
         }
 
-        await _messagingService.MarkMessagesAsReadAsync(conversationId, userId);
+        var result = await _messagingService.MarkMessagesAsReadAsync(conversationId, userId);
+        
+        if (result.StatusCode == 200)
+        {
+            var conversationResult = await _messagingService.GetConversationAsync(conversationId, userId);
+            if (conversationResult.StatusCode == 200 && conversationResult.Data != null)
+            {
+                var otherUserId = conversationResult.Data.OtherParticipantId;
+                
+                var otherUserConnections = await _userConnectionService.GetConnectionsAsync(otherUserId);
+                foreach (var connectionId in otherUserConnections)
+                {
+                    await Clients.Client(connectionId).SendAsync("MessagesRead", conversationId);
+                }
+            }
+        }
     }
 
     public async Task<bool> IsUserOnline(string userId)
