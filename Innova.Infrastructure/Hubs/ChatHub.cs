@@ -1,7 +1,7 @@
 using Innova.Application.DTOs.Messaging;
 using Innova.Application.Services.Interfaces;
 
-namespace Innova.Infrastructure.Services;
+namespace Innova.Infrastructure.Hubs;
 
 public class ChatHub : Hub
 {

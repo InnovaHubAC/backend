@@ -1,7 +1,7 @@
 using Innova.API.Extensions;
 using Innova.Infrastructure.Extensions;
 using Innova.API.Middlewares;
-using Innova.Infrastructure.Services;
+using Innova.Infrastructure.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
