@@ -104,6 +104,30 @@ namespace Innova.Application.Services.Implementations
             return ApiResponse<PaginationDto<IdeaDetailsDto>>.Success(pagination);
         }
 
+        public async Task<ApiResponse<PaginationDto<IdeaDetailsDto>>> GetAllIdeasAsync(PaginationParams paginationParams)
+        {
+            var (ideas, totalCount) = await _unitOfWork.IdeaRepository.GetAllIdeasPagedAsync(
+                paginationParams.PageIndex,
+                paginationParams.PageSize,
+                paginationParams.Sort);
+
+            var ideaDetailsDtos = new List<IdeaDetailsDto>();
+
+            foreach (var idea in ideas)
+            {
+                var ideaDetailsDto = await CreateIdeaDetailsDtoAsync(idea.Id, idea);
+                ideaDetailsDtos.Add(ideaDetailsDto);
+            }
+
+            var pagination = new PaginationDto<IdeaDetailsDto>(
+                paginationParams.PageIndex,
+                paginationParams.PageSize,
+                totalCount,
+                ideaDetailsDtos);
+
+            return ApiResponse<PaginationDto<IdeaDetailsDto>>.Success(pagination);
+        }
+
         private async Task<ApiResponse<bool>> ValidateCreateIdeaAsync(CreateIdeaDto createIdeaDto)
         {
             var dtoValidationResult = ValidateDto(createIdeaDto);

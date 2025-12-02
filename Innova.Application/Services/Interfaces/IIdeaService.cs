@@ -7,5 +7,6 @@
         Task<ApiResponse<IdeaDetailsDto>> GetIdeaDetailsAsync(int ideaId);
         Task<ApiResponse<bool>> DeleteIdeaAsync(int ideaId, string userId);
         Task<ApiResponse<PaginationDto<IdeaDetailsDto>>> GetIdeasByUserIdAsync(string userId, PaginationParams paginationParams);
+        Task<ApiResponse<PaginationDto<IdeaDetailsDto>>> GetAllIdeasAsync(PaginationParams paginationParams);
     }
 }
