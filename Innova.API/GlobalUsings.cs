@@ -4,6 +4,7 @@ global using Microsoft.AspNetCore.Mvc;
 global using Innova.Application.DTOs;
 global using Innova.Application.Services.Interfaces;
 global using Innova.Application.Services.Implementations;
+global using Innova.Application.DTOs.Common;
 global using System.Net;
 global using System.Text.Json;
 global using Serilog;

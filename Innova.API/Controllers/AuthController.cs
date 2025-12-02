@@ -26,7 +26,7 @@ namespace Innova.API.Controllers
         {
             var response = await _authService.RegisterAsync(registerDto);
 
-            if (!response.Data!.IsAuthenticated)
+            if (response.Data == null || !response.Data.IsAuthenticated)
                 return BadRequest(response);
 
             _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", response.Data.RefreshToken!, response.Data.RefreshTokenExpiresOn);
@@ -42,7 +42,7 @@ namespace Innova.API.Controllers
         public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Login(LoginDto loginDto)
         {
             var response = await _authService.LoginAsync(loginDto);
-            if (!response.Data!.IsAuthenticated)
+            if (response.Data == null || !response.Data.IsAuthenticated)
                 return BadRequest(response);
 
             _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", response.Data.RefreshToken!, response.Data.RefreshTokenExpiresOn);
@@ -62,7 +62,7 @@ namespace Innova.API.Controllers
             }
 
             var response = await _authService.RefreshToken(refreshToken);
-            if (!response.Data!.IsAuthenticated)
+            if (response.Data == null || !response.Data.IsAuthenticated)
                 return BadRequest(response);
 
             _jwtTokenService.SetTokenCookieAsHttpOnly("InnovaRefreshToken", response.Data.RefreshToken!, response.Data.RefreshTokenExpiresOn);
@@ -78,7 +78,7 @@ namespace Innova.API.Controllers
         {
             var response = await _authService.VerifyEmailAsync(verifyEmailDto);
 
-            if (!response.Data!.IsVerified)
+            if (response.Data == null || !response.Data.IsVerified)
                 return BadRequest(response);
 
             return Ok(response);
@@ -93,7 +93,7 @@ namespace Innova.API.Controllers
         {
             var response = await _authService.ForgotPasswordAsync(forgotPasswordDto);
 
-            if (!response.Data!.IsSuccess)
+            if (response.Data == null || !response.Data!.IsSuccess)
                 return BadRequest(response);
 
             return Ok(response);
@@ -108,7 +108,7 @@ namespace Innova.API.Controllers
         {
             var response = await _authService.ResetPasswordAsync(resetPasswordDto);
 
-            if (!response.Data!.IsSuccess)
+            if (response.Data == null || !response.Data.IsSuccess)
                 return BadRequest(response);
 
             return Ok(response);
@@ -142,17 +142,17 @@ namespace Innova.API.Controllers
                 return Unauthorized(ApiResponse<AuthResponseDto>.Fail(401, "Google authentication failed."));
             }
 
-            var apiResponse = await _authService.GoogleLoginAsync(info.Principal);
+            var response = await _authService.GoogleLoginAsync(info.Principal);
 
-            if (apiResponse.StatusCode != 200)
+            if (response.StatusCode != 200)
             {
-                return BadRequest(apiResponse);
+                return BadRequest(response);
             }
 
             // TODO: Must be changed to (only) redirect to returnUrl since this may return json response
             if (string.IsNullOrEmpty(returnUrl))
             {
-                return Ok(apiResponse);
+                return Ok(response);
             }
             else
             {
