@@ -1,6 +1,4 @@
-﻿using Innova.Application.DTOs.Attachment;
-using Innova.Application.DTOs.Users;
-using Innova.Domain.Enums;
+﻿using Innova.Application.DTOs.Vote;
 using AttachmentDto = Innova.Application.DTOs.Attachment.AttachmentDto;
 
 namespace Innova.Application.DTOs.Idea
@@ -15,6 +13,7 @@ namespace Innova.Application.DTOs.Idea
         public DateTime? UpdatedAt { get; set; }
         public List<AttachmentDto> IdeaAttachments { get; set; } = null!;
         public DepartmentDto Department { get; set; } = null!;
-        public UserDto User { get; set; } = null!;
+        public UserDto User { get; set; } = new();
+        public VoteStatsDto VoteStats { get; set; } = new();
     }
 }

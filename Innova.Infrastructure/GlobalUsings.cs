@@ -6,6 +6,7 @@ global using Innova.Infrastructure.Repositories;
 global using Microsoft.EntityFrameworkCore;
 global using Innova.Domain.Common;
 global using Innova.Domain.Entities;
+global using Innova.Domain.Enums;
 global using Microsoft.Extensions.DependencyInjection;
 global using Microsoft.Extensions.Configuration;
 global using Microsoft.Extensions.Options;

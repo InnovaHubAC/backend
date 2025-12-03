@@ -1,4 +1,5 @@
-﻿using AttachmentDto = Innova.Application.DTOs.Attachment.AttachmentDto;
+﻿using Innova.Application.DTOs.Vote;
+using AttachmentDto = Innova.Application.DTOs.Attachment.AttachmentDto;
 
 namespace Innova.Application.Services.Implementations
 {
@@ -19,6 +20,113 @@ namespace Innova.Application.Services.Implementations
             _updateIdeaValidator = new UpdateIdeaDtoValidator();
         }
 
+        public async Task<ApiResponse<bool>> CreateIdeaAsync(CreateIdeaDto createIdeaDto)
+        {
+            var validationResponse = await ValidateCreateIdeaAsync(createIdeaDto);
+            if (!validationResponse.Data)
+                return validationResponse;
+            return await SaveIdeaAsync(createIdeaDto);
+        }
+
+        public async Task<ApiResponse<bool>> UpdateIdeaAsync(UpdateIdeaDto updateIdeaDto)
+        {
+            var validationResponse = await ValidateUpdateIdeaAsync(updateIdeaDto);
+            if (!validationResponse.Data)
+                return ApiResponse<bool>.Fail(validationResponse.StatusCode, validationResponse.Message!, validationResponse.Details);
+
+            return await UpdateAndSaveIdeaAsync(updateIdeaDto);
+        }
+
+        public async Task<ApiResponse<IdeaDetailsDto>> GetIdeaDetailsAsync(int ideaId)
+        {
+            var idea = await _unitOfWork.IdeaRepository.GetByIdWithIncludesAsync(ideaId, new()
+            {
+                x => x.Attachments!,
+                x => x.Department
+            });
+
+            if (idea is null)
+                return ApiResponse<IdeaDetailsDto>.Fail(404, "Idea not found");
+
+            IdeaDetailsDto ideaDetailsDto = await CreateIdeaDetailsDtoAsync(ideaId, idea);
+            return ApiResponse<IdeaDetailsDto>.Success(ideaDetailsDto);
+        }
+
+        public async Task<ApiResponse<bool>> DeleteIdeaAsync(int ideaId, string userId)
+        {
+            var idea = await _unitOfWork.IdeaRepository.GetByIdWithIncludesAsync(ideaId, new()
+            {
+                x => x.Attachments!
+            });
+
+            if (idea is null)
+                return ApiResponse<bool>.Fail(404, "Idea not found");
+
+            if (idea.AppUserId != userId)
+            {
+                return ApiResponse<bool>.Fail(403, "You do not have permission to delete this idea");
+            }
+
+            await _unitOfWork.IdeaRepository.DeleteAsync(idea);
+            await _unitOfWork.CompleteAsync();
+
+            // Delete attachments from storage
+            DeleteAttachmentsFromStorage(idea.Attachments?.ToList());
+            return ApiResponse<bool>.Success(true);
+        }
+
+        public async Task<ApiResponse<PaginationDto<IdeaDetailsDto>>>
+         GetIdeasByUserIdAsync(string userId, PaginationParams paginationParams)
+        {
+            // TODO: rewrite this to utilize the query syntax to avoid looping and making two queries
+            var spec = new GetIdeasByUserIdSpecification(userId);
+            var ideas = await _unitOfWork.IdeaRepository.ListAsync(spec);
+
+            var user = await _identityService.GetUserForIdeaAsync(userId);
+            if (user == null)
+            {
+                return ApiResponse<PaginationDto<IdeaDetailsDto>>.Fail(404, "User not found");
+            }
+
+            var dtos = ideas.Adapt<IReadOnlyList<IdeaDetailsDto>>();
+
+            foreach (var dto in dtos)
+            {
+                dto.User.UserName = user.Value.UserName;
+                dto.User.FirstName = user.Value.FirstName;
+                dto.User.LastName = user.Value.LastName;
+                dto.User.Id = userId;
+            }
+
+            var pagination = new PaginationDto<IdeaDetailsDto>(paginationParams.PageIndex,
+             paginationParams.PageSize, ideas.Count, dtos);
+
+            return ApiResponse<PaginationDto<IdeaDetailsDto>>.Success(pagination);
+        }
+
+        public async Task<ApiResponse<PaginationDto<IdeaDetailsDto>>> GetAllIdeasAsync(PaginationParams paginationParams)
+        {
+            var (ideas, totalCount) = await _unitOfWork.IdeaRepository.GetAllIdeasPagedAsync(
+                paginationParams.PageIndex,
+                paginationParams.PageSize,
+                paginationParams.Sort);
+
+            var ideaDetailsDtos = new List<IdeaDetailsDto>();
+
+            foreach (var idea in ideas)
+            {
+                var ideaDetailsDto = await CreateIdeaDetailsDtoAsync(idea.Id, idea);
+                ideaDetailsDtos.Add(ideaDetailsDto);
+            }
+
+            var pagination = new PaginationDto<IdeaDetailsDto>(
+                paginationParams.PageIndex,
+                paginationParams.PageSize,
+                totalCount,
+                ideaDetailsDtos);
+
+            return ApiResponse<PaginationDto<IdeaDetailsDto>>.Success(pagination);
+        }
 
         private async Task<ApiResponse<bool>> ValidateCreateIdeaAsync(CreateIdeaDto createIdeaDto)
         {
@@ -68,7 +176,6 @@ namespace Innova.Application.Services.Implementations
             return ApiResponse<bool>.Success(true);
         }
 
-
         private async Task<ApiResponse<bool>> SaveIdeaAsync(CreateIdeaDto createIdeaDto)
         {
             Idea idea = await CreateIdeaEntityAsync(createIdeaDto);
@@ -102,23 +209,6 @@ namespace Innova.Application.Services.Implementations
                     idea.Attachments!.Add(attachment);
                 }
             }
-        }
-
-        public async Task<ApiResponse<bool>> CreateIdeaAsync(CreateIdeaDto createIdeaDto)
-        {
-            var validationResponse = await ValidateCreateIdeaAsync(createIdeaDto);
-            if (!validationResponse.Data)
-                return validationResponse;
-            return await SaveIdeaAsync(createIdeaDto);
-        }
-
-        public async Task<ApiResponse<bool>> UpdateIdeaAsync(UpdateIdeaDto updateIdeaDto)
-        {
-            var validationResponse = await ValidateUpdateIdeaAsync(updateIdeaDto);
-            if (!validationResponse.Data)
-                return ApiResponse<bool>.Fail(validationResponse.StatusCode, validationResponse.Message!, validationResponse.Details);
-
-            return await UpdateAndSaveIdeaAsync(updateIdeaDto);
         }
 
         private async Task<ApiResponse<bool>> ValidateUpdateIdeaAsync(UpdateIdeaDto updateIdeaDto)
@@ -176,6 +266,7 @@ namespace Innova.Application.Services.Implementations
                 return;
             attachments.ForEach(attachment => _fileStorageService.RemoveFile(attachment.FileUrl, attachment.FileType));
         }
+
         private async Task SaveUpdatedIdeaEntityAsync(UpdateIdeaDto updateIdeaDto, Idea idea)
         {
             updateIdeaDto.Adapt(idea, TypeAdapterConfig.GlobalSettings);
@@ -223,78 +314,33 @@ namespace Innova.Application.Services.Implementations
             }
         }
 
-        public async Task<ApiResponse<IdeaDetailsDto>> GetIdeaDetailsAsync(int ideaId)
+        private async Task<IdeaDetailsDto> CreateIdeaDetailsDtoAsync(int ideaId, Idea idea)
         {
-            var idea = await _unitOfWork.IdeaRepository.GetByIdWithIncludesAsync(ideaId, new()
-            {
-                x => x.Attachments!,
-                x => x.Department
-            });
-
-            if (idea is null)
-                return ApiResponse<IdeaDetailsDto>.Fail(404, "Idea not found");
-
             var user = await _identityService.GetUserForIdeaAsync(idea.AppUserId);
-
             var ideaDetailsDto = idea.Adapt<IdeaDetailsDto>();
             ideaDetailsDto.IdeaAttachments = idea.Attachments!.Adapt<List<AttachmentDto>>();
             ideaDetailsDto.User.UserName = user.Value.UserName;
             ideaDetailsDto.User.FirstName = user.Value.FirstName;
             ideaDetailsDto.User.LastName = user.Value.LastName;
             ideaDetailsDto.User.Id = idea.AppUserId;
-            return ApiResponse<IdeaDetailsDto>.Success(ideaDetailsDto);
-        }
 
-        public async Task<ApiResponse<bool>> DeleteIdeaAsync(int ideaId, string userId)
-        {
-            var idea = await _unitOfWork.IdeaRepository.GetByIdWithIncludesAsync(ideaId, new()
+            VoteType? userVoteType = null;
+            if (!string.IsNullOrEmpty(ideaDetailsDto.User.Id))
             {
-                x => x.Attachments!
-            });
-
-            if (idea is null)
-                return ApiResponse<bool>.Fail(404, "Idea not found");
-
-            if (idea.AppUserId != userId)
-            {
-                return ApiResponse<bool>.Fail(403, "You do not have permission to delete this idea");
+                var userVote = await _unitOfWork.VoteRepository.GetUserVoteForIdeaAsync(ideaId, ideaDetailsDto.User.Id);
+                if (userVote != null && userVote.VoteType != VoteType.Withdraw)
+                {
+                    userVoteType = userVote.VoteType;
+                }
             }
 
-            await _unitOfWork.IdeaRepository.DeleteAsync(idea);
-            await _unitOfWork.CompleteAsync();
-
-            // Delete attachments from storage
-            DeleteAttachmentsFromStorage(idea.Attachments?.ToList());
-            return ApiResponse<bool>.Success(true);
-        }
-
-        public async Task<ApiResponse<PaginationDto<IdeaDetailsDto>>>
-         GetIdeasByUserIdAsync(string userId, PaginationParams paginationParams)
-        {
-            // TODO: rewrite this to utilize the query syntax to avoid looping and making two queries
-            var spec = new GetIdeasByUserIdSpecification(userId);
-            var ideas = await _unitOfWork.IdeaRepository.ListAsync(spec);
-
-            var user = await _identityService.GetUserForIdeaAsync(userId);
-            if (user == null)
+            ideaDetailsDto.VoteStats = new VoteStatsDto
             {
-                return ApiResponse<PaginationDto<IdeaDetailsDto>>.Fail(404, "User not found");
-            }
-
-            var dtos = ideas.Adapt<IReadOnlyList<IdeaDetailsDto>>();
-
-            foreach (var dto in dtos)
-            {
-                dto.User.UserName = user.Value.UserName;
-                dto.User.FirstName = user.Value.FirstName;
-                dto.User.LastName = user.Value.LastName;
-                dto.User.Id = userId;
-            }
-
-            var pagination = new PaginationDto<IdeaDetailsDto>(paginationParams.PageIndex,
-             paginationParams.PageSize, ideas.Count, dtos);
-
-            return ApiResponse<PaginationDto<IdeaDetailsDto>>.Success(pagination);
+                UpvoteCount = await _unitOfWork.VoteRepository.GetUpvoteCountForIdeaAsync(ideaId),
+                DownvoteCount = await _unitOfWork.VoteRepository.GetDownvoteCountForIdeaAsync(ideaId),
+                UserVoteType = userVoteType
+            };
+            return ideaDetailsDto;
         }
     }
 }

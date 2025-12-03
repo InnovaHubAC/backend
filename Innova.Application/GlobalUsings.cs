@@ -5,6 +5,7 @@ global using System.Collections.Generic;
 global using System.Reflection;
 global using Innova.Domain.Specifications;
 global using Innova.Domain.Entities;
+global using Innova.Domain.Enums;
 global using Innova.Application.DTOs;
 global using Innova.Application.Services.Interfaces;
 global using Innova.Application.DTOs.Common;

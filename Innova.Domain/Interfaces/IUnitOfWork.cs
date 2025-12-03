@@ -7,5 +7,6 @@ public interface IUnitOfWork : IDisposable
     IGenericRepository<Comment> CommentRepository { get; }
     IConversationRepository ConversationRepository { get; }
     IMessageRepository MessageRepository { get; }
+    IVoteRepository VoteRepository { get; }
     Task<int> CompleteAsync();
 }

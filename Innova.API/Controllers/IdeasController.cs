@@ -1,13 +1,9 @@
 ﻿using Innova.API.Helpers;
 using Innova.API.Requests.Idea;
-using Innova.Application.DTOs;
-using Innova.Application.DTOs.Common;
-using Innova.Application.DTOs.Idea;
 using Innova.Application.DTOs.Comment;
-using Innova.Application.Services.Interfaces;
+using Innova.Application.DTOs.Idea;
 using Mapster;
 using Microsoft.AspNetCore.Authorization;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace Innova.API.Controllers
@@ -23,6 +19,15 @@ namespace Innova.API.Controllers
         {
             _ideaService = ideaService;
             _commentService = commentService;
+        }
+
+        [HttpGet]
+        [ProducesResponseType(typeof(ApiResponse<PaginationDto<IdeaDetailsDto>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<PaginationDto<IdeaDetailsDto>>), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse<PaginationDto<IdeaDetailsDto>>>> GetAllIdeas([FromQuery] PaginationParams paginationParams)
+        {
+            var result = await _ideaService.GetAllIdeasAsync(paginationParams);
+            return Ok(result);
         }
 
         [HttpPost]
