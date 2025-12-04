@@ -1,5 +1,3 @@
-using Innova.Application.DTOs.Messaging;
-
 namespace Innova.Application.Services.Interfaces;
 
 public interface IMessagingService

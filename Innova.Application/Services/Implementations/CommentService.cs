@@ -1,11 +1,3 @@
-using Innova.Application.DTOs;
-using Innova.Application.DTOs.Comment;
-using Innova.Application.Services.Interfaces;
-using Innova.Domain.Entities;
-using Innova.Domain.Interfaces;
-using Innova.Domain.Specifications;
-using Mapster;
-
 namespace Innova.Application.Services.Implementations;
 
 public class CommentService : ICommentService
@@ -19,16 +11,18 @@ public class CommentService : ICommentService
 
     public async Task<ApiResponse<IEnumerable<CommentDto>>> GetCommentsByIdeaIdAsync(int ideaId)
     {
-        var spec = new CommentSpecifications(ideaId, CommentSpecType.ByIdea);
-        var comments = await _unitOfWork.CommentRepository.ListAsync(spec);
+        var comments = await _unitOfWork.CommentRepository.ListAsync(
+            predicate: c => c.IdeaId == ideaId && c.ParentId == null,
+            orderBy: q => q.OrderByDescending(c => c.CreatedAt));
         return ApiResponse<IEnumerable<CommentDto>>.Success(comments.Adapt<IEnumerable<CommentDto>>());
     }
 
     // TODO: this must be paginated if there are many replies
     public async Task<ApiResponse<IEnumerable<CommentDto>>> GetRepliesByCommentIdAsync(int commentId)
     {
-        var spec = new CommentSpecifications(commentId, CommentSpecType.ByParent);
-        var comments = await _unitOfWork.CommentRepository.ListAsync(spec);
+        var comments = await _unitOfWork.CommentRepository.ListAsync(
+            predicate: c => c.ParentId == commentId,
+            orderBy: q => q.OrderBy(c => c.CreatedAt));
         return ApiResponse<IEnumerable<CommentDto>>.Success(comments.Adapt<IEnumerable<CommentDto>>());
     }
 

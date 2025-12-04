@@ -1,8 +1,4 @@
-﻿using System.Security.Claims;
-using Innova.Application.DTOs;
-using Innova.Application.DTOs.Auth;
-
-namespace Innova.Application.Services.Interfaces
+﻿namespace Innova.Application.Services.Interfaces
 {
     public interface IAuthService
     {

@@ -1,23 +1,16 @@
-﻿using Innova.Application.DTOs.Vote;
-using AttachmentDto = Innova.Application.DTOs.Attachment.AttachmentDto;
-
-namespace Innova.Application.Services.Implementations
+﻿namespace Innova.Application.Services.Implementations
 {
     public class IdeaService : IIdeaService
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IIdentityService _identityService;
         private readonly IFileStorageService _fileStorageService;
-        private readonly CreateIdeaDtoValidator _createIdeaValidator;
-        private readonly UpdateIdeaDtoValidator _updateIdeaValidator;
 
         public IdeaService(IUnitOfWork unitOfWork, IIdentityService identityService, IFileStorageService fileStorageService)
         {
             _unitOfWork = unitOfWork;
             _identityService = identityService;
             _fileStorageService = fileStorageService;
-            _createIdeaValidator = new CreateIdeaDtoValidator();
-            _updateIdeaValidator = new UpdateIdeaDtoValidator();
         }
 
         public async Task<ApiResponse<bool>> CreateIdeaAsync(CreateIdeaDto createIdeaDto)
@@ -79,8 +72,10 @@ namespace Innova.Application.Services.Implementations
          GetIdeasByUserIdAsync(string userId, PaginationParams paginationParams)
         {
             // TODO: rewrite this to utilize the query syntax to avoid looping and making two queries
-            var spec = new GetIdeasByUserIdSpecification(userId);
-            var ideas = await _unitOfWork.IdeaRepository.ListAsync(spec);
+            var ideas = await _unitOfWork.IdeaRepository.ListAsync(
+                predicate: i => i.AppUserId == userId,
+                orderBy: q => q.OrderByDescending(i => i.CreatedAt),
+                includes: new() { i => i.Department, i => i.Attachments! });
 
             var user = await _identityService.GetUserForIdeaAsync(userId);
             if (user == null)
@@ -147,7 +142,8 @@ namespace Innova.Application.Services.Implementations
 
         private ApiResponse<bool> ValidateDto(CreateIdeaDto createIdeaDto)
         {
-            var validationResult = _createIdeaValidator.Validate(createIdeaDto);
+            var createIdeaValidator = new CreateIdeaDtoValidator();
+            var validationResult = createIdeaValidator.Validate(createIdeaDto);
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
@@ -159,10 +155,9 @@ namespace Innova.Application.Services.Implementations
 
         private async Task<ApiResponse<bool>> ValidateDepartmentExistsAsync(int departmentId)
         {
-            var departmentByIdSpecification = new GetDepartmentByIdSpecification(departmentId);
-            var departmentCount = await _unitOfWork.DepartmentRepository.CountAsync(departmentByIdSpecification);
+            var departmentExists = await _unitOfWork.DepartmentRepository.AnyAsync(d => d.Id == departmentId);
 
-            if (departmentCount == 0)
+            if (!departmentExists)
                 return ApiResponse<bool>.Fail(404, "Department not found");
 
             return ApiResponse<bool>.Success(true);
@@ -230,7 +225,8 @@ namespace Innova.Application.Services.Implementations
 
         private ApiResponse<bool> ValidateUpdateDto(UpdateIdeaDto updateIdeaDto)
         {
-            var validationResult = _updateIdeaValidator.Validate(updateIdeaDto);
+            var updateIdeaValidator = new UpdateIdeaDtoValidator();
+            var validationResult = updateIdeaValidator.Validate(updateIdeaDto);
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();

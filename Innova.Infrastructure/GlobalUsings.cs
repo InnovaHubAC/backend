@@ -1,7 +1,5 @@
 global using Innova.Domain.Interfaces;
-global using Innova.Domain.Specifications;
 global using Innova.Infrastructure.Data.Context;
-global using Innova.Infrastructure.Specifications;
 global using Innova.Infrastructure.Repositories;
 global using Microsoft.EntityFrameworkCore;
 global using Innova.Domain.Common;

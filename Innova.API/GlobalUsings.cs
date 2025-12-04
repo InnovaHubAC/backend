@@ -8,6 +8,6 @@ global using Innova.Application.DTOs.Common;
 global using System.Net;
 global using System.Text.Json;
 global using Serilog;
-global using Innova.Application.DTOs.Common;
+global using Innova.Application.DTOs.Department;
 global using Microsoft.AspNetCore.Authentication;
 global using Innova.Application.DTOs.Auth;
