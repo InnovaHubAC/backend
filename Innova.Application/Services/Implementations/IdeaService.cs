@@ -5,16 +5,12 @@
         private readonly IUnitOfWork _unitOfWork;
         private readonly IIdentityService _identityService;
         private readonly IFileStorageService _fileStorageService;
-        private readonly CreateIdeaDtoValidator _createIdeaValidator;
-        private readonly UpdateIdeaDtoValidator _updateIdeaValidator;
 
         public IdeaService(IUnitOfWork unitOfWork, IIdentityService identityService, IFileStorageService fileStorageService)
         {
             _unitOfWork = unitOfWork;
             _identityService = identityService;
             _fileStorageService = fileStorageService;
-            _createIdeaValidator = new CreateIdeaDtoValidator();
-            _updateIdeaValidator = new UpdateIdeaDtoValidator();
         }
 
         public async Task<ApiResponse<bool>> CreateIdeaAsync(CreateIdeaDto createIdeaDto)
@@ -144,7 +140,8 @@
 
         private ApiResponse<bool> ValidateDto(CreateIdeaDto createIdeaDto)
         {
-            var validationResult = _createIdeaValidator.Validate(createIdeaDto);
+            var createIdeaValidator = new CreateIdeaDtoValidator();
+            var validationResult = createIdeaValidator.Validate(createIdeaDto);
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
@@ -227,7 +224,8 @@
 
         private ApiResponse<bool> ValidateUpdateDto(UpdateIdeaDto updateIdeaDto)
         {
-            var validationResult = _updateIdeaValidator.Validate(updateIdeaDto);
+            var updateIdeaValidator = new UpdateIdeaDtoValidator();
+            var validationResult = updateIdeaValidator.Validate(updateIdeaDto);
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
