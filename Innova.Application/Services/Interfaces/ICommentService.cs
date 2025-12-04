@@ -1,6 +1,3 @@
-using Innova.Application.DTOs;
-using Innova.Application.DTOs.Comment;
-
 namespace Innova.Application.Services.Interfaces;
 
 public interface ICommentService

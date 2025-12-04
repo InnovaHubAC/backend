@@ -1,5 +1,3 @@
-using Innova.Application.DTOs.Messaging;
-
 namespace Innova.Application.Services.Implementations;
 
 public class MessagingService : IMessagingService

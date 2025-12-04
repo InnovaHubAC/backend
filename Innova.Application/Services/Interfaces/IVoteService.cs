@@ -1,5 +1,3 @@
-using Innova.Application.DTOs.Vote;
-
 namespace Innova.Application.Services.Interfaces;
 
 public interface IVoteService

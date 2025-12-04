@@ -1,5 +1,3 @@
-using Innova.Application.DTOs.Users;
-
 namespace Innova.Application.Services.Interfaces
 {
     public interface IUsersService

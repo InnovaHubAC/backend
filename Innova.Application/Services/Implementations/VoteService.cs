@@ -1,5 +1,3 @@
-using Innova.Application.DTOs.Vote;
-
 namespace Innova.Application.Services.Implementations;
 
 public class VoteService : IVoteService

@@ -1,7 +1,4 @@
-﻿using Innova.Application.DTOs.Vote;
-using AttachmentDto = Innova.Application.DTOs.Attachment.AttachmentDto;
-
-namespace Innova.Application.Services.Implementations
+﻿namespace Innova.Application.Services.Implementations
 {
     public class IdeaService : IIdeaService
     {

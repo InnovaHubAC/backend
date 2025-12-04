@@ -1,11 +1,3 @@
-using Innova.Application.DTOs;
-using Innova.Application.DTOs.Comment;
-using Innova.Application.Services.Interfaces;
-using Innova.Domain.Entities;
-using Innova.Domain.Interfaces;
-using Innova.Domain.Specifications;
-using Mapster;
-
 namespace Innova.Application.Services.Implementations;
 
 public class CommentService : ICommentService
