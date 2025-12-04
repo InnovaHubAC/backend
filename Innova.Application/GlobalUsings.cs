@@ -3,7 +3,6 @@ global using Innova.Domain.Interfaces;
 global using Mapster;
 global using System.Collections.Generic;
 global using System.Reflection;
-global using Innova.Domain.Specifications;
 global using Innova.Domain.Entities;
 global using Innova.Domain.Enums;
 global using Innova.Application.DTOs;

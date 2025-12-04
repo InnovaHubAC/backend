@@ -72,8 +72,10 @@
          GetIdeasByUserIdAsync(string userId, PaginationParams paginationParams)
         {
             // TODO: rewrite this to utilize the query syntax to avoid looping and making two queries
-            var spec = new GetIdeasByUserIdSpecification(userId);
-            var ideas = await _unitOfWork.IdeaRepository.ListAsync(spec);
+            var ideas = await _unitOfWork.IdeaRepository.ListAsync(
+                predicate: i => i.AppUserId == userId,
+                orderBy: q => q.OrderByDescending(i => i.CreatedAt),
+                includes: new() { i => i.Department, i => i.Attachments! });
 
             var user = await _identityService.GetUserForIdeaAsync(userId);
             if (user == null)
@@ -153,10 +155,9 @@
 
         private async Task<ApiResponse<bool>> ValidateDepartmentExistsAsync(int departmentId)
         {
-            var departmentByIdSpecification = new GetDepartmentByIdSpecification(departmentId);
-            var departmentCount = await _unitOfWork.DepartmentRepository.CountAsync(departmentByIdSpecification);
+            var departmentExists = await _unitOfWork.DepartmentRepository.AnyAsync(d => d.Id == departmentId);
 
-            if (departmentCount == 0)
+            if (!departmentExists)
                 return ApiResponse<bool>.Fail(404, "Department not found");
 
             return ApiResponse<bool>.Success(true);
