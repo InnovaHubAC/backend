@@ -12,11 +12,11 @@ public class DepartmentsController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<DepartmentDto>>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<IReadOnlyList<DepartmentDto>>>> GetAllDepartments()
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<PaginationDto<DepartmentDto>>>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<PaginationDto<DepartmentDto>>>>> GetAllDepartments([FromQuery] PaginationParams paginationParams)
     {
-        var departmentsResponse = await _departmentService.GetAllDepartmentsAsync();
-        return Ok(departmentsResponse);
+        var response = await _departmentService.GetAllDepartmentsAsync(paginationParams);
+        return Ok(response);
     }
 
     [HttpGet("{id}")]

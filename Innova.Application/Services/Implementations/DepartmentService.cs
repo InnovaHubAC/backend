@@ -10,12 +10,30 @@ public class DepartmentService : IDepartmentService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<ApiResponse<IReadOnlyList<DepartmentDto>>> GetAllDepartmentsAsync()
+    public async Task<ApiResponse<PaginationDto<DepartmentDto>>> GetAllDepartmentsAsync(PaginationParams paginationParams)
     {
-        var departments = await _unitOfWork.DepartmentRepository.ListAsync(
-            orderBy: q => q.OrderBy(d => d.Name));
+        var orderBy = paginationParams.Sort?.ToLower() switch
+        {
+            "name" => new Func<IQueryable<Department>, IOrderedQueryable<Department>>(q => q.OrderBy(d => d.Name)),
+            "name_desc" => new Func<IQueryable<Department>, IOrderedQueryable<Department>>(q => q.OrderByDescending(d => d.Name)),
+            _ => new Func<IQueryable<Department>, IOrderedQueryable<Department>>(q => q.OrderBy(d => d.Id))
+        };
+
+        var (departments, totalCount) = await _unitOfWork.DepartmentRepository.ListPagedAsync(
+            paginationParams.PageIndex,
+            paginationParams.PageSize,
+            orderBy: orderBy);
+
         var dtos = departments.Adapt<IReadOnlyList<DepartmentDto>>();
-        return new ApiResponse<IReadOnlyList<DepartmentDto>>(200, dtos, "Departments retrieved successfully.");
+
+        var paginationDtos = new PaginationDto<DepartmentDto>(
+            paginationParams.PageIndex,
+            paginationParams.PageSize,
+            totalCount,
+            dtos
+        );
+
+        return new ApiResponse<PaginationDto<DepartmentDto>>(200, paginationDtos, "Departments retrieved successfully.");
     }
 
     public async Task<ApiResponse<DepartmentDto>> GetDepartmentByIdAsync(int id)
@@ -33,6 +51,7 @@ public class DepartmentService : IDepartmentService
     {
         var existing = await _unitOfWork.DepartmentRepository.FirstOrDefaultAsync(
             d => d.Name.ToLower() == createDto.Name.ToLower());
+            
         if (existing != null)
         {
             return new ApiResponse<DepartmentDto>(400, null, $"Department with name '{createDto.Name}' already exists.");
