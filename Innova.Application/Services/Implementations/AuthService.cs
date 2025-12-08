@@ -5,13 +5,15 @@
         private readonly IIdentityService _identityService;
         private readonly IJwtTokenService _jwtTokenService;
         private readonly IEmailService _emailService;
+        private readonly IBackgroundJobService _backgroundJobService;
         private const string DefaultUserRole = "User";
 
-        public AuthService(IIdentityService identityService, IJwtTokenService jwtTokenService, IEmailService emailService)
+        public AuthService(IIdentityService identityService, IJwtTokenService jwtTokenService, IEmailService emailService, IBackgroundJobService backgroundJobService)
         {
             _identityService = identityService;
             _jwtTokenService = jwtTokenService;
             _emailService = emailService;
+            _backgroundJobService = backgroundJobService;
         }
 
         // Public methods first
@@ -25,8 +27,8 @@
             if (userCreationError != null)
                 return ApiResponse<AuthResponseDto>.Fail(503, "User creation failed.", userCreationError);
 
-            // TODO: use background job to send email
-            await SendEmailConfirmationAsync(registerDto.Email, registerDto.UserName);
+            // Enqueue email sending as background job
+            _backgroundJobService.Enqueue(() => SendEmailConfirmationAsync(registerDto.Email, registerDto.UserName));
 
             var response = await GenerateAuthResponseAsync(registerDto.UserName, registerDto.Email);
             return ApiResponse<AuthResponseDto>.Success(response);
@@ -111,8 +113,8 @@
             }
 
             var userName = await _identityService.GetUserNameByEmailAsync(forgotPasswordDto.Email);
-            // TODO: use background job to send email
-            await _emailService.SendPasswordResetEmailAsync(forgotPasswordDto.Email, userName, resetToken);
+            // Enqueue email sending as background job
+            _backgroundJobService.Enqueue(() => _emailService.SendPasswordResetEmailAsync(forgotPasswordDto.Email, userName, resetToken));
 
             var successResponse = new PasswordResetResponseDto
             {
