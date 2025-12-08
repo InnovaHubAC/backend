@@ -31,6 +31,7 @@ public static class InfrastructureExtensions
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<IBackgroundJobService, BackgroundJobService>();
 
         services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
 
