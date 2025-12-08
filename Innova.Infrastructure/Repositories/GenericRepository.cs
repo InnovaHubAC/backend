@@ -36,13 +36,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
         Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
         List<Expression<Func<T, object>>>? includes = null)
     {
-        IQueryable<T> query = _context.Set<T>();
-
-        if (predicate != null)
-            query = query.Where(predicate);
-
-        if (includes != null)
-            includes.ForEach(include => query = query.Include(include));
+        var query  = GetQueryableWithIncludes(predicate, includes);
 
         if (orderBy != null)
             query = orderBy(query);
@@ -50,17 +44,33 @@ public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
         return await query.ToListAsync();
     }
 
+    public async Task<(IReadOnlyList<T> Items, int TotalCount)> ListPagedAsync(
+        int pageIndex,
+        int pageSize,
+        Expression<Func<T, bool>>? predicate = null,
+        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
+        List<Expression<Func<T, object>>>? includes = null)
+    {
+        var query = GetQueryableWithIncludes(predicate, includes);
+
+        if (orderBy != null)
+            query = orderBy(query);
+
+        var totalCount = await query.CountAsync();
+
+        var items = await query
+            .Skip((pageIndex - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return (items, totalCount);
+    }
+
     public async Task<T?> FirstOrDefaultAsync(
         Expression<Func<T, bool>>? predicate = null,
         List<Expression<Func<T, object>>>? includes = null)
     {
-        IQueryable<T> query = _context.Set<T>();
-
-        if (includes != null)
-            includes.ForEach(include => query = query.Include(include));
-
-        if (predicate != null)
-            return await query.FirstOrDefaultAsync(predicate);
+        var query = GetQueryableWithIncludes(predicate, includes);
 
         return await query.FirstOrDefaultAsync();
     }
@@ -93,5 +103,20 @@ public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
     public async Task DeleteAsync(T entity)
     {
         await _context.Set<T>().Where(x => x.Id == entity.Id).ExecuteDeleteAsync();
+    }
+
+    private IQueryable<T> GetQueryableWithIncludes(
+        Expression<Func<T, bool>>? predicate = null,
+        List<Expression<Func<T, object>>>? includes = null)
+    {
+        IQueryable<T> query = _context.Set<T>();
+
+        if (predicate != null)
+            query = query.Where(predicate);
+
+        if (includes != null)
+            includes.ForEach(include => query = query.Include(include));
+
+        return query;
     }
 }
