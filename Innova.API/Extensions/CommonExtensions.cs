@@ -8,9 +8,10 @@ namespace Innova.API.Extensions
             {
                 options.AddPolicy("CorsPolicy", builder =>
                 {
-                    builder.AllowAnyOrigin()
+                    builder.SetIsOriginAllowed(_ => true) // Allow any origin
                         .AllowAnyMethod()
-                        .AllowAnyHeader();
+                        .AllowAnyHeader()
+                        .AllowCredentials(); // Required for SignalR with auth
                 });
             });
         }

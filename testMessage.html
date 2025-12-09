@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat Test Client</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        input, button, textarea { margin: 5px 0; padding: 8px; }
+        input[type="text"], textarea { width: 300px; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 3px; }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; }
+        #messages { height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
+        .message { margin: 5px 0; padding: 8px; border-radius: 5px; }
+        .received { background-color: #e9ecef; }
+        .sent { background-color: #007bff; color: white; text-align: right; }
+        .system { background-color: #fff3cd; font-style: italic; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        #status { padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 SignalR Chat Test Client</h1>
+        
+        <div id="status" class="disconnected">Disconnected</div>
+
+        <div class="section">
+            <h3>1. Authentication</h3>
+            <p>First, get a JWT token from your API (login endpoint)</p>
+            <input type="text" id="token" placeholder="Paste your JWT token here" style="width: 100%;">
+            <br>
+            <input type="text" id="hubUrl" value="https://localhost:7001/hubs/chat" placeholder="Hub URL">
+            <br>
+            <button onclick="connect()">Connect</button>
+            <button onclick="disconnect()">Disconnect</button>
+        </div>
+
+        <div class="section">
+            <h3>2. Send Message</h3>
+            <input type="text" id="receiverId" placeholder="Receiver User ID">
+            <br>
+            <textarea id="messageContent" placeholder="Message content"></textarea>
+            <br>
+            <button onclick="sendMessage()" id="sendBtn" disabled>Send Message</button>
+        </div>
+
+        <div class="section">
+            <h3>3. Other Actions</h3>
+            <input type="text" id="conversationId" placeholder="Conversation ID">
+            <button onclick="markAsRead()" id="markReadBtn" disabled>Mark as Read</button>
+            <br><br>
+            <input type="text" id="checkUserId" placeholder="User ID to check">
+            <button onclick="checkOnline()" id="checkOnlineBtn" disabled>Check if Online</button>
+            <br><br>
+            <input type="text" id="typingReceiverId" placeholder="Receiver ID">
+            <input type="text" id="typingConvId" placeholder="Conversation ID">
+            <button onclick="startTyping()" id="typingBtn" disabled>Start Typing</button>
+            <button onclick="stopTyping()" id="stopTypingBtn" disabled>Stop Typing</button>
+        </div>
+
+        <div class="section">
+            <h3>📨 Messages Log</h3>
+            <button onclick="clearMessages()">Clear</button>
+            <div id="messages"></div>
+        </div>
+    </div>
+
+    <script>
+        let connection = null;
+
+        function log(message, type = 'system') {
+            const messagesDiv = document.getElementById('messages');
+            const msgElement = document.createElement('div');
+            msgElement.className = `message ${type}`;
+            msgElement.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            messagesDiv.appendChild(msgElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function setButtonsEnabled(enabled) {
+            document.getElementById('sendBtn').disabled = !enabled;
+            document.getElementById('markReadBtn').disabled = !enabled;
+            document.getElementById('checkOnlineBtn').disabled = !enabled;
+            document.getElementById('typingBtn').disabled = !enabled;
+            document.getElementById('stopTypingBtn').disabled = !enabled;
+        }
+
+        function updateStatus(connected) {
+            const status = document.getElementById('status');
+            if (connected) {
+                status.textContent = '✅ Connected';
+                status.className = 'connected';
+            } else {
+                status.textContent = '❌ Disconnected';
+                status.className = 'disconnected';
+            }
+        }
+
+        async function connect() {
+            const token = document.getElementById('token').value;
+            const hubUrl = document.getElementById('hubUrl').value;
+
+            if (!token) {
+                log('Please enter a JWT token', 'error');
+                return;
+            }
+
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl(hubUrl, {
+                    accessTokenFactory: () => token
+                })
+                .withAutomaticReconnect()
+                .configureLogging(signalR.LogLevel.Information)
+                .build();
+
+            // Register event handlers
+            connection.on("ReceiveMessage", (message) => {
+                log(`📩 New message from ${message.senderName || message.senderId}: ${message.content}`, 'received');
+                console.log('Received message:', message);
+            });
+
+            connection.on("MessageSent", (message) => {
+                log(`✅ Message sent successfully (ID: ${message.id})`, 'sent');
+                console.log('Message sent:', message);
+            });
+
+            connection.on("MessagesRead", (conversationId) => {
+                log(`👁️ Messages in conversation ${conversationId} were read`, 'system');
+            });
+
+            connection.on("UserStatusChanged", (data) => {
+                const status = data.isOnline ? '🟢 online' : '🔴 offline';
+                log(`User ${data.userId} is now ${status}`, 'system');
+            });
+
+            connection.on("UserTyping", (data) => {
+                log(`✏️ User ${data.userId} is typing in conversation ${data.conversationId}...`, 'system');
+            });
+
+            connection.on("UserStoppedTyping", (data) => {
+                log(`User ${data.userId} stopped typing`, 'system');
+            });
+
+            connection.on("Error", (message) => {
+                log(`❌ Error: ${message}`, 'error');
+            });
+
+            connection.onclose(() => {
+                log('Connection closed', 'error');
+                updateStatus(false);
+                setButtonsEnabled(false);
+            });
+
+            connection.onreconnecting(() => {
+                log('Reconnecting...', 'system');
+                updateStatus(false);
+            });
+
+            connection.onreconnected(() => {
+                log('Reconnected!', 'system');
+                updateStatus(true);
+            });
+
+            try {
+                await connection.start();
+                log('Connected successfully!', 'system');
+                updateStatus(true);
+                setButtonsEnabled(true);
+            } catch (err) {
+                log(`Connection failed: ${err}`, 'error');
+                console.error(err);
+            }
+        }
+
+        async function disconnect() {
+            if (connection) {
+                await connection.stop();
+                log('Disconnected', 'system');
+                updateStatus(false);
+                setButtonsEnabled(false);
+            }
+        }
+
+        async function sendMessage() {
+            const receiverId = document.getElementById('receiverId').value;
+            const content = document.getElementById('messageContent').value;
+
+            if (!receiverId || !content) {
+                log('Please enter receiver ID and message content', 'error');
+                return;
+            }
+
+            try {
+                await connection.invoke("SendMessage", receiverId, content);
+                document.getElementById('messageContent').value = '';
+            } catch (err) {
+                log(`Failed to send: ${err}`, 'error');
+            }
+        }
+
+        async function markAsRead() {
+            const conversationId = parseInt(document.getElementById('conversationId').value);
+            if (!conversationId) {
+                log('Please enter conversation ID', 'error');
+                return;
+            }
+
+            try {
+                await connection.invoke("MarkAsRead", conversationId);
+                log(`Marked conversation ${conversationId} as read`, 'system');
+            } catch (err) {
+                log(`Failed: ${err}`, 'error');
+            }
+        }
+
+        async function checkOnline() {
+            const userId = document.getElementById('checkUserId').value;
+            if (!userId) {
+                log('Please enter user ID', 'error');
+                return;
+            }
+
+            try {
+                const isOnline = await connection.invoke("IsUserOnline", userId);
+                log(`User ${userId} is ${isOnline ? '🟢 online' : '🔴 offline'}`, 'system');
+            } catch (err) {
+                log(`Failed: ${err}`, 'error');
+            }
+        }
+
+        async function startTyping() {
+            const receiverId = document.getElementById('typingReceiverId').value;
+            const convId = parseInt(document.getElementById('typingConvId').value);
+            
+            try {
+                await connection.invoke("StartTyping", convId, receiverId);
+            } catch (err) {
+                log(`Failed: ${err}`, 'error');
+            }
+        }
+
+        async function stopTyping() {
+            const receiverId = document.getElementById('typingReceiverId').value;
+            const convId = parseInt(document.getElementById('typingConvId').value);
+            
+            try {
+                await connection.invoke("StopTyping", convId, receiverId);
+            } catch (err) {
+                log(`Failed: ${err}`, 'error');
+            }
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+    </script>
+</body>
+</html>

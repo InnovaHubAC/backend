@@ -13,6 +13,7 @@
         public DateTime? UpdatedAt { get; set; }
         public ICollection<Attachment>? Attachments { get; set; } = new List<Attachment>();
         public ICollection<Comment> Comments { get; set; } = new List<Comment>();
+        public ICollection<Vote> Votes { get; set; } = new List<Vote>();
         public Department Department { get; set; } = null!;
     }
 }

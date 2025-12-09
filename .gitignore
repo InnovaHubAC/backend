@@ -46,3 +46,4 @@ wwwroot/
 # Miscellaneous ignores
 endpoints.md
 /Innova.API/assets
+/Innova.API/.config/dotnet-tools.json

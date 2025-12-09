@@ -1,6 +1,8 @@
 using Innova.API.Extensions;
 using Innova.Infrastructure.Extensions;
 using Innova.API.Middlewares;
+using Innova.API.Hubs;
+using Hangfire;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,6 +10,15 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.ConfigureSerilog();
 
 builder.Services.ConfigureInfrastructureServices(builder.Configuration);
+
+// Configure Hangfire
+builder.Services.AddHangfire(configuration => configuration
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseSqlServerStorage(builder.Configuration.GetConnectionString("HangfireConnection")));
+
+builder.Services.AddHangfireServer();
 
 builder.Services.AddControllers();
 
@@ -29,19 +40,24 @@ var app = builder.Build();
 app.UseMiddleware<ExceptionMiddleware>();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+/*if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+}*/
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
 app.UseCors("CorsPolicy");
 
+// Hangfire Dashboard - need to add it in development only or secure it properly
+app.UseHangfireDashboard();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();

@@ -1,13 +1,9 @@
-﻿using System.Security.Claims;
-using Innova.Application.DTOs;
-using Innova.Application.DTOs.Auth;
-
-namespace Innova.Application.Services.Interfaces
+﻿namespace Innova.Application.Services.Interfaces
 {
     public interface IAuthService
     {
-        Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto);
-        Task<AuthResponseDto> LoginAsync(LoginDto loginDto);
+        Task<ApiResponse<AuthResponseDto>> RegisterAsync(RegisterDto registerDto);
+        Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginDto loginDto);
         Task<ApiResponse<AuthResponseDto>> RefreshToken(string token);
         Task<ApiResponse<VerifyEmailResponseDto>> VerifyEmailAsync(VerifyEmailDto verifyEmailDto);
         Task<ApiResponse<PasswordResetResponseDto>> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto);

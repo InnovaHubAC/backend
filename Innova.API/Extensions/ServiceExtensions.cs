@@ -12,6 +12,9 @@ public static class ServiceExtensions
         services.AddScoped<IIdeaService, IdeaService>();
         services.AddScoped<ICommentService, CommentService>();
         services.AddScoped<IUsersService, UsersService>();
+        services.AddScoped<IMessagingService, MessagingService>();
+        services.AddScoped<IVoteService, VoteService>();
+        
         // Add Mapster configuration
         MappingConfig.ConfigureMappings();
     }

@@ -97,6 +97,44 @@ namespace Innova.Infrastructure.Migrations
                     b.ToTable("Comments");
                 });
 
+            modelBuilder.Entity("Innova.Domain.Entities.Conversation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<DateTime?>("LastMessageAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ParticipantOneId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ParticipantTwoId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParticipantOneId");
+
+                    b.HasIndex("ParticipantTwoId");
+
+                    b.HasIndex("ParticipantOneId", "ParticipantTwoId")
+                        .IsUnique();
+
+                    b.ToTable("Conversations", (string)null);
+                });
+
             modelBuilder.Entity("Innova.Domain.Entities.Department", b =>
                 {
                     b.Property<int>("Id")
@@ -171,6 +209,99 @@ namespace Innova.Infrastructure.Migrations
                     b.HasIndex("DepartmentId");
 
                     b.ToTable("Ideas", (string)null);
+                });
+
+            modelBuilder.Entity("Innova.Domain.Entities.Message", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<int>("ConversationId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsRead")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReceiverId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("SenderId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("SentAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("ReceiverId");
+
+                    b.HasIndex("SenderId");
+
+                    b.HasIndex("SentAt");
+
+                    b.HasIndex("ReceiverId", "IsRead");
+
+                    b.ToTable("Messages", (string)null);
+                });
+
+            modelBuilder.Entity("Innova.Domain.Entities.Vote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<int>("IdeaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VoteType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("WithdrawnAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("IdeaId");
+
+                    b.HasIndex("IdeaId", "AppUserId")
+                        .IsUnique();
+
+                    b.ToTable("Votes", (string)null);
                 });
 
             modelBuilder.Entity("Innova.Infrastructure.Data.Context.AppUser", b =>
@@ -446,6 +577,21 @@ namespace Innova.Infrastructure.Migrations
                     b.Navigation("Parent");
                 });
 
+            modelBuilder.Entity("Innova.Domain.Entities.Conversation", b =>
+                {
+                    b.HasOne("Innova.Infrastructure.Data.Context.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("ParticipantOneId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Innova.Infrastructure.Data.Context.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("ParticipantTwoId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Innova.Domain.Entities.Idea", b =>
                 {
                     b.HasOne("Innova.Infrastructure.Data.Context.AppUser", null)
@@ -461,6 +607,46 @@ namespace Innova.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Department");
+                });
+
+            modelBuilder.Entity("Innova.Domain.Entities.Message", b =>
+                {
+                    b.HasOne("Innova.Domain.Entities.Conversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Innova.Infrastructure.Data.Context.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("ReceiverId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Innova.Infrastructure.Data.Context.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+                });
+
+            modelBuilder.Entity("Innova.Domain.Entities.Vote", b =>
+                {
+                    b.HasOne("Innova.Infrastructure.Data.Context.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Innova.Domain.Entities.Idea", "Idea")
+                        .WithMany("Votes")
+                        .HasForeignKey("IdeaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Idea");
                 });
 
             modelBuilder.Entity("Innova.Infrastructure.Data.Context.RefreshToken", b =>
@@ -530,6 +716,11 @@ namespace Innova.Infrastructure.Migrations
                     b.Navigation("Replies");
                 });
 
+            modelBuilder.Entity("Innova.Domain.Entities.Conversation", b =>
+                {
+                    b.Navigation("Messages");
+                });
+
             modelBuilder.Entity("Innova.Domain.Entities.Department", b =>
                 {
                     b.Navigation("Ideas");
@@ -540,6 +731,8 @@ namespace Innova.Infrastructure.Migrations
                     b.Navigation("Attachments");
 
                     b.Navigation("Comments");
+
+                    b.Navigation("Votes");
                 });
 
             modelBuilder.Entity("Innova.Infrastructure.Data.Context.AppUser", b =>
