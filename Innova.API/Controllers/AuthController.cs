@@ -21,7 +21,6 @@ namespace Innova.API.Controllers
         [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status500InternalServerError)]
-        [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status503ServiceUnavailable)]
         public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Register(RegisterDto registerDto)
         {
             var response = await _authService.RegisterAsync(registerDto);

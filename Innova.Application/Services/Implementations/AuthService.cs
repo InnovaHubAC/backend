@@ -24,8 +24,8 @@
                 return ApiResponse<AuthResponseDto>.Fail(400, "Validation failed.", registrationErrors);
 
             var userCreationError = await CreateUserWithRoleAsync(registerDto);
-            if (userCreationError != null)
-                return ApiResponse<AuthResponseDto>.Fail(503, "User creation failed.", userCreationError);
+            if (userCreationError.Any())
+                return ApiResponse<AuthResponseDto>.Fail(400, "User creation failed.", userCreationError);
 
             // Enqueue email sending as background job
             _backgroundJobService.Enqueue(() => SendEmailConfirmationAsync(registerDto.Email, registerDto.UserName));
@@ -42,7 +42,7 @@
                 return new ApiResponse<AuthResponseDto>(400, null, "Invalid email or password.");
             }
 
-            if(!await _identityService.IsEmailConfirmedAsync(loginDto.Email))
+            if (!await _identityService.IsEmailConfirmedAsync(loginDto.Email))
             {
                 return new ApiResponse<AuthResponseDto>(400, null, "Email is not confirmed. Please verify your email before logging in.");
             }
@@ -200,7 +200,7 @@
         public async Task<(bool Success, List<string> Errors)> CreateExternalUserAsync(string email, string userName, string firstName, string lastName, string provider, string providerKey)
         {
             var result = await _identityService.CreateExternalUserAsync(email, userName, firstName, lastName, provider, providerKey);
-            
+
             if (result.Success)
             {
                 // Add default role to the new user
@@ -210,7 +210,7 @@
                     return (false, roleErrors);
                 }
             }
-            
+
             return result;
         }
 
@@ -230,6 +230,15 @@
                 UserName = userName,
                 Email = email
             };
+        }
+
+        public async Task SendEmailConfirmationAsync(string email, string userName)
+        {
+            var confirmationToken = await _identityService.GenerateEmailConfirmationTokenAsync(email);
+            if (!string.IsNullOrEmpty(confirmationToken))
+            {
+                await _emailService.SendRegisterationEmailConfirmationAsync(email, userName, confirmationToken);
+            }
         }
 
         // Private methods after public
@@ -279,15 +288,6 @@
                 return roleAssignmentErrors;
 
             return new();
-        }
-
-        private async Task SendEmailConfirmationAsync(string email, string userName)
-        {
-            var confirmationToken = await _identityService.GenerateEmailConfirmationTokenAsync(email);
-            if (!string.IsNullOrEmpty(confirmationToken))
-            {
-                await _emailService.SendRegisterationEmailConfirmationAsync(email, userName, confirmationToken);
-            }
         }
 
         private async Task<AuthResponseDto> GenerateAuthResponseAsync(string userName, string email)
