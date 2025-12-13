@@ -4,13 +4,25 @@ public static class InfrastructureExtensions
 {
     public static void ConfigureInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
-        // Register DbContext with SQL Server
+        services.ConfigureDatabaseServices(configuration);
+        services.ConfigureIdentityServices();
+        services.ConfigureExternalServices(configuration);
+        services.ConfigureCachingServices();
+        services.ConfigureMessagingServices();
+    }
+
+    private static void ConfigureDatabaseServices(this IServiceCollection services, IConfiguration configuration)
+    {
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(
                 configuration.GetConnectionString("DefaultConnection"),
                 b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
 
-        // Configure Identity Core
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+    }
+
+    private static void ConfigureIdentityServices(this IServiceCollection services)
+    {
         services.AddIdentity<AppUser, IdentityRole>(options =>
         {
             options.Password.RequireDigit = true;
@@ -30,17 +42,26 @@ public static class InfrastructureExtensions
 
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
+    }
+
+    private static void ConfigureExternalServices(this IServiceCollection services, IConfiguration configuration)
+    {
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IBackgroundJobService, BackgroundJobService>();
-
-        services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
-
-        services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IFileStorageService, FileStorageService>();
 
-        // SignalR and Messaging services
+        services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
+    }
+
+    private static void ConfigureCachingServices(this IServiceCollection services)
+    {
+        services.AddMemoryCache();
+        services.AddSingleton<ICacheService, MemoryCacheService>();
+    }
+
+    private static void ConfigureMessagingServices(this IServiceCollection services)
+    {
         services.AddSignalR();
-        // singleton for connection tracking (in-memory state)
         services.AddSingleton<IUserConnectionService, UserConnectionService>();
     }
 }
