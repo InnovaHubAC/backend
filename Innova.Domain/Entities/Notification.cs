@@ -14,4 +14,6 @@ public class Notification : BaseEntity
     public Idea? Idea { get; set; }
     public int? VoteId { get; set; }
     public Vote? Vote { get; set; }
+    public int? CommentId { get; set; }
+    public Comment? Comment { get; set; }
 }

@@ -83,6 +83,62 @@ public class NotificationService : INotificationService
         await _notificationHubClient.DispatchAsync(recipientId, notificationDto);
     }
 
+    public async Task PublishIdeaCommentNotificationAsync(Idea idea, Comment comment,
+        string triggeredByUserId)
+    {
+        if (idea.AppUserId == triggeredByUserId)
+        {
+            return;
+        }
+
+        var recipientId = idea.AppUserId;
+        var commenter = await _identityService.GetUserByIdAsync(triggeredByUserId);
+        var commenterDisplayName = "Someone";
+
+        if (commenter.HasValue)
+        {
+            var firstName = commenter.Value.FirstName;
+            var lastName = commenter.Value.LastName;
+            var nameParts = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(firstName))
+            {
+                nameParts.Add(firstName.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(lastName))
+            {
+                nameParts.Add(lastName.Trim());
+            }
+
+            if (nameParts.Count > 0)
+            {
+                commenterDisplayName = string.Join(' ', nameParts);
+            }
+            else if (!string.IsNullOrWhiteSpace(commenter.Value.UserName))
+            {
+                commenterDisplayName = commenter.Value.UserName!;
+            }
+        }
+
+        var notification = new Notification
+        {
+            RecipientId = recipientId,
+            TriggeredById = triggeredByUserId,
+            NotificationType = NotificationType.IdeaComment,
+            Title = "New comment on your idea",
+            Message = $"{commenterDisplayName} commented on your idea '{idea.Title}'.",
+            IdeaId = idea.Id,
+            CommentId = comment.Id,
+        };
+
+        await _unitOfWork.NotificationRepository.AddAsync(notification);
+        await _unitOfWork.CompleteAsync();
+
+        var notificationDto = notification.Adapt<NotificationDto>();
+        await _notificationHubClient.DispatchAsync(recipientId, notificationDto);
+    }
+
     public async Task<ApiResponse<IEnumerable<NotificationDto>>> GetRecentNotificationsAsync(
         string userId,
         int page = 1,

@@ -3,10 +3,12 @@ namespace Innova.Application.Services.Implementations;
 public class CommentService : ICommentService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly INotificationService _notificationService;
 
-    public CommentService(IUnitOfWork unitOfWork)
+    public CommentService(IUnitOfWork unitOfWork, INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
+        _notificationService = notificationService;
     }
 
     public async Task<ApiResponse<IEnumerable<CommentDto>>> GetCommentsByIdeaIdAsync(int ideaId)
@@ -28,12 +30,21 @@ public class CommentService : ICommentService
 
     public async Task<ApiResponse<CommentDto>> CreateCommentAsync(int ideaId, CreateCommentDto createCommentDto, string userId)
     {
+        var idea = await _unitOfWork.IdeaRepository.GetByIdAsync(ideaId);
+        if (idea == null)
+        {
+            return ApiResponse<CommentDto>.Fail(404, "Idea not found");
+        }
+
         var comment = createCommentDto.Adapt<Comment>();
         comment.IdeaId = ideaId;
         comment.AppUserId = userId;
         
         await _unitOfWork.CommentRepository.AddAsync(comment);
         await _unitOfWork.CompleteAsync();
+        
+        // Send notification to idea owner
+        await _notificationService.PublishIdeaCommentNotificationAsync(idea, comment, userId);
         
         return ApiResponse<CommentDto>.Success(comment.Adapt<CommentDto>());
     }
@@ -46,6 +57,12 @@ public class CommentService : ICommentService
             return ApiResponse<CommentDto>.Fail(404, "Parent comment not found");
         }
 
+        var idea = await _unitOfWork.IdeaRepository.GetByIdAsync(parentComment.IdeaId);
+        if (idea == null)
+        {
+            return ApiResponse<CommentDto>.Fail(404, "Idea not found");
+        }
+
         var comment = createCommentDto.Adapt<Comment>();
         comment.IdeaId = parentComment.IdeaId;
         comment.ParentId = parentId;
@@ -53,6 +70,9 @@ public class CommentService : ICommentService
 
         await _unitOfWork.CommentRepository.AddAsync(comment);
         await _unitOfWork.CompleteAsync();
+
+        // Send notification to idea owner (replies also notify the idea owner)
+        await _notificationService.PublishIdeaCommentNotificationAsync(idea, comment, userId);
 
         return ApiResponse<CommentDto>.Success(comment.Adapt<CommentDto>());
     }
