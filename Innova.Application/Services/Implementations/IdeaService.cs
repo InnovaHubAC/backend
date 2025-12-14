@@ -5,29 +5,74 @@
         private readonly IUnitOfWork _unitOfWork;
         private readonly IIdentityService _identityService;
         private readonly IFileStorageService _fileStorageService;
+        private readonly ILogger<IdeaService> _logger;
 
-        public IdeaService(IUnitOfWork unitOfWork, IIdentityService identityService, IFileStorageService fileStorageService)
+        public IdeaService(
+            IUnitOfWork unitOfWork, 
+            IIdentityService identityService, 
+            IFileStorageService fileStorageService,
+            ILogger<IdeaService> logger)
         {
             _unitOfWork = unitOfWork;
             _identityService = identityService;
             _fileStorageService = fileStorageService;
+            _logger = logger;
         }
 
         public async Task<ApiResponse<bool>> CreateIdeaAsync(CreateIdeaDto createIdeaDto)
         {
             var validationResponse = await ValidateCreateIdeaAsync(createIdeaDto);
             if (!validationResponse.Data)
+            {
+                _logger.LogWarning(
+                    "Idea creation validation failed. UserId: {UserId}, DepartmentId: {DepartmentId}, ValidationDetails: {ValidationDetails}",
+                    createIdeaDto.AppUserId,
+                    createIdeaDto.DepartmentId,
+                    validationResponse.Message);
                 return validationResponse;
-            return await SaveIdeaAsync(createIdeaDto);
+            }
+
+            var result = await SaveIdeaAsync(createIdeaDto);
+            
+            if (result.Data)
+            {
+                _logger.LogInformation(
+                    "Idea created successfully. UserId: {UserId}, DepartmentId: {DepartmentId}, AttachmentCount: {AttachmentCount}, IsAnonymous: {IsAnonymous}",
+                    createIdeaDto.AppUserId,
+                    createIdeaDto.DepartmentId,
+                    createIdeaDto.Attachments?.Count ?? 0,
+                    createIdeaDto.IsAnonymous);
+            }
+
+            return result;
         }
 
         public async Task<ApiResponse<bool>> UpdateIdeaAsync(UpdateIdeaDto updateIdeaDto)
         {
             var validationResponse = await ValidateUpdateIdeaAsync(updateIdeaDto);
             if (!validationResponse.Data)
+            {
+                _logger.LogWarning(
+                    "Idea update validation failed. IdeaId: {IdeaId}, UserId: {UserId}, ValidationDetails: {ValidationDetails}",
+                    updateIdeaDto.Id,
+                    updateIdeaDto.AppUserId,
+                    validationResponse.Message);
                 return ApiResponse<bool>.Fail(validationResponse.StatusCode, validationResponse.Message!, validationResponse.Details);
+            }
 
-            return await UpdateAndSaveIdeaAsync(updateIdeaDto);
+            var result = await UpdateAndSaveIdeaAsync(updateIdeaDto);
+
+            if (result.Data)
+            {
+                _logger.LogInformation(
+                    "Idea updated successfully. IdeaId: {IdeaId}, UserId: {UserId}, NewAttachmentCount: {NewAttachmentCount}, RemovedAttachmentCount: {RemovedAttachmentCount}",
+                    updateIdeaDto.Id,
+                    updateIdeaDto.AppUserId,
+                    updateIdeaDto.Attachments?.Count ?? 0,
+                    updateIdeaDto.RemovedAttachmentIds?.Count ?? 0);
+            }
+
+            return result;
         }
 
         public async Task<ApiResponse<IdeaDetailsDto>> GetIdeaDetailsAsync(int ideaId)
@@ -39,9 +84,21 @@
             });
 
             if (idea is null)
+            {
+                _logger.LogWarning(
+                    "Idea retrieval failed. Idea not found. IdeaId: {IdeaId}",
+                    ideaId);
                 return ApiResponse<IdeaDetailsDto>.Fail(404, "Idea not found");
+            }
 
             IdeaDetailsDto ideaDetailsDto = await CreateIdeaDetailsDtoAsync(ideaId, idea);
+
+            _logger.LogInformation(
+                "Idea details retrieved successfully. IdeaId: {IdeaId}, DepartmentId: {DepartmentId}, AttachmentCount: {AttachmentCount}",
+                ideaId,
+                idea.DepartmentId,
+                idea.Attachments?.Count ?? 0);
+
             return ApiResponse<IdeaDetailsDto>.Success(ideaDetailsDto);
         }
 
@@ -53,18 +110,38 @@
             });
 
             if (idea is null)
+            {
+                _logger.LogWarning(
+                    "Idea deletion failed. Idea not found. IdeaId: {IdeaId}, UserId: {UserId}",
+                    ideaId,
+                    userId);
                 return ApiResponse<bool>.Fail(404, "Idea not found");
+            }
 
             if (idea.AppUserId != userId)
             {
+                _logger.LogWarning(
+                    "Idea deletion failed. Unauthorized access attempt. IdeaId: {IdeaId}, IdeaOwnerId: {IdeaOwnerId}, RequestingUserId: {RequestingUserId}",
+                    ideaId,
+                    idea.AppUserId,
+                    userId);
                 return ApiResponse<bool>.Fail(403, "You do not have permission to delete this idea");
             }
+
+            var attachmentCount = idea.Attachments?.Count ?? 0;
 
             await _unitOfWork.IdeaRepository.DeleteAsync(idea);
             await _unitOfWork.CompleteAsync();
 
             // Delete attachments from storage
             DeleteAttachmentsFromStorage(idea.Attachments?.ToList());
+
+            _logger.LogInformation(
+                "Idea deleted successfully. IdeaId: {IdeaId}, UserId: {UserId}, DeletedAttachmentCount: {DeletedAttachmentCount}",
+                ideaId,
+                userId,
+                attachmentCount);
+
             return ApiResponse<bool>.Success(true);
         }
 
@@ -80,6 +157,9 @@
             var user = await _identityService.GetUserForIdeaAsync(userId);
             if (user == null)
             {
+                _logger.LogWarning(
+                    "User ideas retrieval failed. User not found. UserId: {UserId}",
+                    userId);
                 return ApiResponse<PaginationDto<IdeaDetailsDto>>.Fail(404, "User not found");
             }
 
@@ -95,6 +175,13 @@
 
             var pagination = new PaginationDto<IdeaDetailsDto>(paginationParams.PageIndex,
              paginationParams.PageSize, ideas.Count, dtos);
+
+            _logger.LogInformation(
+                "User ideas retrieved successfully. UserId: {UserId}, IdeaCount: {IdeaCount}, PageIndex: {PageIndex}, PageSize: {PageSize}",
+                userId,
+                ideas.Count,
+                paginationParams.PageIndex,
+                paginationParams.PageSize);
 
             return ApiResponse<PaginationDto<IdeaDetailsDto>>.Success(pagination);
         }
@@ -119,6 +206,13 @@
                 paginationParams.PageSize,
                 totalCount,
                 ideaDetailsDtos);
+
+            _logger.LogInformation(
+                "All ideas retrieved successfully. TotalCount: {TotalCount}, PageIndex: {PageIndex}, PageSize: {PageSize}, Sort: {Sort}",
+                totalCount,
+                paginationParams.PageIndex,
+                paginationParams.PageSize,
+                paginationParams.Sort ?? "default");
 
             return ApiResponse<PaginationDto<IdeaDetailsDto>>.Success(pagination);
         }
@@ -147,6 +241,12 @@
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+
+                _logger.LogWarning(
+                    "Idea DTO validation failed. UserId: {UserId}, ValidationErrors: {@ValidationErrors}",
+                    createIdeaDto.AppUserId,
+                    errors);
+
                 return ApiResponse<bool>.Fail(400, "Validation Failed", errors);
             }
 
@@ -158,7 +258,12 @@
             var departmentExists = await _unitOfWork.DepartmentRepository.AnyAsync(d => d.Id == departmentId);
 
             if (!departmentExists)
+            {
+                _logger.LogWarning(
+                    "Idea validation failed. Department not found. DepartmentId: {DepartmentId}",
+                    departmentId);
                 return ApiResponse<bool>.Fail(404, "Department not found");
+            }
 
             return ApiResponse<bool>.Success(true);
         }
@@ -166,7 +271,12 @@
         private async Task<ApiResponse<bool>> ValidateUserExistsAsync(string userId)
         {
             if (!await _identityService.UserExistsAsync(userId))
+            {
+                _logger.LogWarning(
+                    "Idea validation failed. User not found. UserId: {UserId}",
+                    userId);
                 return ApiResponse<bool>.Fail(404, "User not found");
+            }
 
             return ApiResponse<bool>.Success(true);
         }
@@ -190,6 +300,11 @@
         {
             if (createIdeaDto.Attachments != null && createIdeaDto.Attachments.Count > 0)
             {
+                _logger.LogInformation(
+                    "Saving idea attachments. AttachmentCount: {AttachmentCount}, UserId: {UserId}",
+                    createIdeaDto.Attachments.Count,
+                    createIdeaDto.AppUserId);
+
                 foreach (var file in createIdeaDto.Attachments)
                 {
                     var extension = Path.GetExtension(file.FileName);
@@ -230,6 +345,13 @@
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+
+                _logger.LogWarning(
+                    "Idea update DTO validation failed. IdeaId: {IdeaId}, UserId: {UserId}, ValidationErrors: {@ValidationErrors}",
+                    updateIdeaDto.Id,
+                    updateIdeaDto.AppUserId,
+                    errors);
+
                 return ApiResponse<bool>.Fail(400, "Validation Failed", errors);
             }
 
@@ -245,12 +367,27 @@
             });
 
             if (idea is null)
+            {
+                _logger.LogWarning(
+                    "Idea update failed. Idea not found. IdeaId: {IdeaId}, UserId: {UserId}",
+                    updateIdeaDto.Id,
+                    updateIdeaDto.AppUserId);
                 return ApiResponse<bool>.Fail(404, "Idea not found");
+            }
 
             // Identify attachments to remove from storage after updating the idea entity.
             var attachmentsToRemoveFromStorage = idea.Attachments?
                 .Where(a => updateIdeaDto.RemovedAttachmentIds != null && updateIdeaDto.RemovedAttachmentIds.Contains(a.Id))
                 .ToList();
+
+            if (attachmentsToRemoveFromStorage != null && attachmentsToRemoveFromStorage.Any())
+            {
+                _logger.LogInformation(
+                    "Removing attachments from idea. IdeaId: {IdeaId}, AttachmentCount: {AttachmentCount}",
+                    updateIdeaDto.Id,
+                    attachmentsToRemoveFromStorage.Count);
+            }
+
             await SaveUpdatedIdeaEntityAsync(updateIdeaDto, idea!);
             DeleteAttachmentsFromStorage(attachmentsToRemoveFromStorage);
             return ApiResponse<bool>.Success(true);
@@ -260,6 +397,11 @@
         {
             if (attachments is null || !attachments.Any())
                 return;
+
+            _logger.LogInformation(
+                "Deleting attachments from storage. AttachmentCount: {AttachmentCount}",
+                attachments.Count);
+
             attachments.ForEach(attachment => _fileStorageService.RemoveFile(attachment.FileUrl, attachment.FileType));
         }
 
@@ -283,6 +425,11 @@
             // Add new attachments
             if (updateIdeaDto.Attachments != null && updateIdeaDto.Attachments.Any())
             {
+                _logger.LogInformation(
+                    "Adding new attachments to idea. IdeaId: {IdeaId}, NewAttachmentCount: {NewAttachmentCount}",
+                    updateIdeaDto.Id,
+                    updateIdeaDto.Attachments.Count);
+
                 foreach (var file in updateIdeaDto.Attachments)
                 {
                     var extension = Path.GetExtension(file.FileName);
