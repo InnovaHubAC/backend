@@ -6,14 +6,21 @@
         private readonly IJwtTokenService _jwtTokenService;
         private readonly IEmailService _emailService;
         private readonly IBackgroundJobService _backgroundJobService;
+        private readonly ILogger<AuthService> _logger;
         private const string DefaultUserRole = "User";
 
-        public AuthService(IIdentityService identityService, IJwtTokenService jwtTokenService, IEmailService emailService, IBackgroundJobService backgroundJobService)
+        public AuthService(
+            IIdentityService identityService, 
+            IJwtTokenService jwtTokenService, 
+            IEmailService emailService, 
+            IBackgroundJobService backgroundJobService,
+            ILogger<AuthService> logger)
         {
             _identityService = identityService;
             _jwtTokenService = jwtTokenService;
             _emailService = emailService;
             _backgroundJobService = backgroundJobService;
+            _logger = logger;
         }
 
         // Public methods first
@@ -21,11 +28,28 @@
         {
             var registrationErrors = await ValidateRegistrationAsync(registerDto);
             if (registrationErrors.Any())
+            {
+                _logger.LogWarning(
+                    "User registration validation failed. UserName: {UserName}, ValidationErrors: {@ValidationErrors}",
+                    registerDto.UserName,
+                    registrationErrors);
                 return ApiResponse<AuthResponseDto>.Fail(400, "Validation failed.", registrationErrors);
+            }
 
             var userCreationError = await CreateUserWithRoleAsync(registerDto);
             if (userCreationError.Any())
+            {
+                _logger.LogWarning(
+                    "User registration failed during user creation. UserName: {UserName}, Errors: {@Errors}",
+                    registerDto.UserName,
+                    userCreationError);
                 return ApiResponse<AuthResponseDto>.Fail(400, "User creation failed.", userCreationError);
+            }
+
+            _logger.LogInformation(
+                "User registered successfully. UserName: {UserName}, Role: {Role}",
+                registerDto.UserName,
+                DefaultUserRole);
 
             // Enqueue email sending as background job
             _backgroundJobService.Enqueue(() => SendEmailConfirmationAsync(registerDto.Email, registerDto.UserName));
@@ -39,13 +63,24 @@
             // Validate user credentials
             if (!await _identityService.ValidateUserCredentialsAsync(loginDto.Email, loginDto.Password))
             {
+                _logger.LogWarning(
+                    "Login failed. Invalid credentials for email: {EmailMasked}",
+                    MaskEmail(loginDto.Email));
                 return new ApiResponse<AuthResponseDto>(400, null, "Invalid email or password.");
             }
 
             if (!await _identityService.IsEmailConfirmedAsync(loginDto.Email))
             {
+                _logger.LogWarning(
+                    "Login failed. Email not confirmed for: {EmailMasked}",
+                    MaskEmail(loginDto.Email));
                 return new ApiResponse<AuthResponseDto>(400, null, "Email is not confirmed. Please verify your email before logging in.");
             }
+
+            var userName = await _identityService.GetUserNameByEmailAsync(loginDto.Email);
+            _logger.LogInformation(
+                "User logged in successfully. UserName: {UserName}",
+                userName);
 
             var response = await CreateAuthResponseForLoginAsync(loginDto);
             return new ApiResponse<AuthResponseDto>(200, response, "Login successful.");
@@ -55,8 +90,16 @@
         {
             if (!await _jwtTokenService.ValidateRefreshTokenAsync(token))
             {
+                _logger.LogWarning(
+                    "Token refresh failed. Invalid refresh token provided");
                 return new ApiResponse<AuthResponseDto>(400, null, "Invalid refresh token.");
             }
+
+            var userName = await _jwtTokenService.GetUserUserNameFromRefreshTokenAsync(token);
+            _logger.LogInformation(
+                "Token refreshed successfully. UserName: {UserName}",
+                userName);
+
             var response = await GenerateAuthResponseFromRefreshTokenAsync(token);
             return new ApiResponse<AuthResponseDto>(200, response, "Token refreshed successfully.");
         }
@@ -68,6 +111,10 @@
 
             if (!validationResult.IsValid)
             {
+                _logger.LogWarning(
+                    "Email verification validation failed. Email: {EmailMasked}, ValidationErrors: {@ValidationErrors}",
+                    MaskEmail(verifyEmailDto.Email),
+                    validationResult.Errors.Select(e => e.ErrorMessage).ToList());
                 return new ApiResponse<VerifyEmailResponseDto>(400, null, "Validation failed.", validationResult.Errors.Select(e => e.ErrorMessage).ToList());
             }
 
@@ -77,8 +124,15 @@
 
             if (!isConfirmed)
             {
+                _logger.LogWarning(
+                    "Email verification failed. Email: {EmailMasked}",
+                    MaskEmail(verifyEmailDto.Email));
                 return new ApiResponse<VerifyEmailResponseDto>(400, null, "Email verification failed.");
             }
+
+            _logger.LogInformation(
+                "Email verified successfully. Email: {EmailMasked}",
+                MaskEmail(verifyEmailDto.Email));
 
             var response = new VerifyEmailResponseDto
             {
@@ -94,11 +148,19 @@
 
             if (!validationResult.IsValid)
             {
+                _logger.LogWarning(
+                    "Forgot password validation failed. Email: {EmailMasked}, ValidationErrors: {@ValidationErrors}",
+                    MaskEmail(forgotPasswordDto.Email),
+                    validationResult.Errors.Select(e => e.ErrorMessage).ToList());
                 return new ApiResponse<PasswordResetResponseDto>(400, null, "Validation failed.", validationResult.Errors.Select(e => e.ErrorMessage).ToList());
             }
 
             if (!await _identityService.EmailExistsAsync(forgotPasswordDto.Email))
             {
+                _logger.LogInformation(
+                    "Password reset requested for non-existent email. Email: {EmailMasked}",
+                    MaskEmail(forgotPasswordDto.Email));
+
                 var response = new PasswordResetResponseDto
                 {
                     IsSuccess = true
@@ -109,8 +171,15 @@
             var resetToken = await _identityService.GeneratePasswordResetTokenAsync(forgotPasswordDto.Email);
             if (string.IsNullOrEmpty(resetToken))
             {
+                _logger.LogError(
+                    "Failed to generate password reset token. Email: {EmailMasked}",
+                    MaskEmail(forgotPasswordDto.Email));
                 return new ApiResponse<PasswordResetResponseDto>(500, null, "Failed to generate password reset token.");
             }
+
+            _logger.LogInformation(
+                "Password reset email queued. Email: {EmailMasked}",
+                MaskEmail(forgotPasswordDto.Email));
 
             var userName = await _identityService.GetUserNameByEmailAsync(forgotPasswordDto.Email);
             // Enqueue email sending as background job
@@ -130,6 +199,10 @@
 
             if (!validationResult.IsValid)
             {
+                _logger.LogWarning(
+                    "Password reset validation failed. Email: {EmailMasked}, ValidationErrors: {@ValidationErrors}",
+                    MaskEmail(resetPasswordDto.Email),
+                    validationResult.Errors.Select(e => e.ErrorMessage).ToList());
                 return new ApiResponse<PasswordResetResponseDto>(400, null, "Validation failed.", validationResult.Errors.Select(e => e.ErrorMessage).ToList());
             }
 
@@ -142,8 +215,15 @@
 
             if (!isReset)
             {
+                _logger.LogWarning(
+                    "Password reset failed. Email: {EmailMasked}",
+                    MaskEmail(resetPasswordDto.Email));
                 return new ApiResponse<PasswordResetResponseDto>(400, null, "Password reset failed. Invalid token or email.");
             }
+
+            _logger.LogInformation(
+                "Password reset successfully. Email: {EmailMasked}",
+                MaskEmail(resetPasswordDto.Email));
 
             var response = new PasswordResetResponseDto
             {
@@ -161,6 +241,8 @@
 
             if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(googleId))
             {
+                _logger.LogWarning(
+                    "Google login failed. Failed to retrieve user information from Google");
                 return new ApiResponse<AuthResponseDto>(400, null, "Failed to retrieve user information from Google.");
             }
 
@@ -170,6 +252,9 @@
             {
                 if (await EmailExistsAsync(email))
                 {
+                    _logger.LogWarning(
+                        "Google login failed. Email already exists. Email: {EmailMasked}",
+                        MaskEmail(email));
                     return new ApiResponse<AuthResponseDto>(400, null, "An account with this email already exists. Please login with your password.");
                 }
 
@@ -177,8 +262,24 @@
                 var createResult = await CreateExternalUserAsync(email, userName, firstName ?? "", lastName ?? "", "Google", googleId);
                 if (!createResult.Success)
                 {
+                    _logger.LogWarning(
+                        "Google login failed. Failed to create external user. UserName: {UserName}, Provider: {Provider}",
+                        userName,
+                        "Google");
                     return new ApiResponse<AuthResponseDto>(400, null, "Failed to create user.");
                 }
+
+                _logger.LogInformation(
+                    "External user created successfully via Google. UserName: {UserName}, Provider: {Provider}",
+                    userName,
+                    "Google");
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "User logged in successfully via Google. UserName: {UserName}, Provider: {Provider}",
+                    userName,
+                    "Google");
             }
 
             var result = await GenerateAuthResponseForExternalLoginAsync(userName, email);
@@ -207,6 +308,11 @@
                 var roleErrors = await _identityService.AddToRoleAsync(userName, DefaultUserRole);
                 if (roleErrors.Any())
                 {
+                    _logger.LogWarning(
+                        "Failed to assign role to external user. UserName: {UserName}, Role: {Role}, Errors: {@Errors}",
+                        userName,
+                        DefaultUserRole,
+                        roleErrors);
                     return (false, roleErrors);
                 }
             }
@@ -237,7 +343,16 @@
             var confirmationToken = await _identityService.GenerateEmailConfirmationTokenAsync(email);
             if (!string.IsNullOrEmpty(confirmationToken))
             {
+                _logger.LogInformation(
+                    "Email confirmation queued. UserName: {UserName}",
+                    userName);
                 await _emailService.SendRegisterationEmailConfirmationAsync(email, userName, confirmationToken);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Failed to generate email confirmation token. UserName: {UserName}",
+                    userName);
             }
         }
 
@@ -337,6 +452,22 @@
                 RefreshTokenExpiresOn = refreshTokenExperationDate,
                 UserName = userName
             };
+        }
+
+        private string MaskEmail(string email)
+        {
+            if (string.IsNullOrEmpty(email) || !email.Contains('@'))
+                return "***";
+
+            var parts = email.Split('@');
+            var localPart = parts[0];
+            var domain = parts[1];
+
+            var maskedLocal = localPart.Length <= 2 
+                ? new string('*', localPart.Length)
+                : $"{localPart[0]}***{localPart[^1]}@";
+
+            return $"{maskedLocal}{domain}";
         }
     }
 }
