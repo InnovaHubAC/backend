@@ -4,13 +4,16 @@ public class DepartmentService : IDepartmentService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICacheService _cacheService;
+    private readonly ILogger<DepartmentService> _logger;
 
     public DepartmentService(
         IUnitOfWork unitOfWork,
-        ICacheService cacheService)
+        ICacheService cacheService,
+        ILogger<DepartmentService> logger)
     {
         _unitOfWork = unitOfWork;
         _cacheService = cacheService;
+        _logger = logger;
     }
 
     public async Task<ApiResponse<PaginationDto<DepartmentDto>>> GetAllDepartmentsAsync(PaginationParams paginationParams)
@@ -20,6 +23,11 @@ public class DepartmentService : IDepartmentService
         var cachedResult = _cacheService.Get<ApiResponse<PaginationDto<DepartmentDto>>>(cacheKey);
         if (cachedResult != null)
         {
+            _logger.LogInformation(
+                "Cache hit for departments list. CacheKey: {CacheKey}, PageIndex: {PageIndex}, PageSize: {PageSize}",
+                cacheKey,
+                paginationParams.PageIndex,
+                paginationParams.PageSize);
             return cachedResult;
         }
 
@@ -48,6 +56,13 @@ public class DepartmentService : IDepartmentService
         
         _cacheService.Set(cacheKey, response, _cacheService.SetMemoryCacheEntryOptions(TimeSpan.FromMinutes(30),TimeSpan.FromMinutes(15)));
 
+        _logger.LogInformation(
+            "Departments list retrieved successfully. TotalCount: {TotalCount}, PageIndex: {PageIndex}, PageSize: {PageSize}, Sort: {Sort}",
+            totalCount,
+            paginationParams.PageIndex,
+            paginationParams.PageSize,
+            paginationParams.Sort ?? "default");
+
         return response;
     }
 
@@ -58,12 +73,19 @@ public class DepartmentService : IDepartmentService
         var cachedResult = _cacheService.Get<ApiResponse<DepartmentDto>>(cacheKey);
         if (cachedResult != null)
         {
+            _logger.LogInformation(
+                "Cache hit for department. CacheKey: {CacheKey}, DepartmentId: {DepartmentId}",
+                cacheKey,
+                id);
             return cachedResult;
         }
 
         var department = await _unitOfWork.DepartmentRepository.GetByIdAsync(id);
         if (department == null)
         {
+            _logger.LogWarning(
+                "Department not found. DepartmentId: {DepartmentId}",
+                id);
             return new ApiResponse<DepartmentDto>(404, null, $"Department with id {id} not found.");
         }
         
@@ -72,6 +94,11 @@ public class DepartmentService : IDepartmentService
         
         _cacheService.Set(cacheKey, response, _cacheService.SetMemoryCacheEntryOptions(TimeSpan.FromMinutes(20), TimeSpan.FromMinutes(10)));
         
+        _logger.LogInformation(
+            "Department retrieved successfully. DepartmentId: {DepartmentId}, DepartmentName: {DepartmentName}",
+            department.Id,
+            department.Name);
+
         return response;
     }
 
@@ -82,12 +109,21 @@ public class DepartmentService : IDepartmentService
             
         if (existing != null)
         {
+            _logger.LogWarning(
+                "Department creation failed. Department with name {DepartmentName} already exists. ExistingDepartmentId: {ExistingDepartmentId}",
+                createDto.Name,
+                existing.Id);
             return new ApiResponse<DepartmentDto>(400, null, $"Department with name '{createDto.Name}' already exists.");
         }
 
         var department = createDto.Adapt<Department>();
         await _unitOfWork.DepartmentRepository.AddAsync(department);
         await _unitOfWork.CompleteAsync();
+
+        _logger.LogInformation(
+            "Department created successfully. DepartmentId: {DepartmentId}, DepartmentName: {DepartmentName}",
+            department.Id,
+            department.Name);
 
         InvalidateAllDepartmentListCache();
 
@@ -100,6 +136,9 @@ public class DepartmentService : IDepartmentService
         var department = await _unitOfWork.DepartmentRepository.GetByIdAsync(id);
         if (department == null)
         {
+            _logger.LogWarning(
+                "Update failed. Department not found. DepartmentId: {DepartmentId}",
+                id);
             return new ApiResponse<DepartmentDto>(404, null, $"Department with id {id} not found.");
         }
 
@@ -107,14 +146,27 @@ public class DepartmentService : IDepartmentService
             d => d.Name.ToLower() == updateDto.Name.ToLower());
         if (existing != null && existing.Id != id)
         {
+            _logger.LogWarning(
+                "Department update failed. Department with name {DepartmentName} already exists. DepartmentId: {DepartmentId}, ExistingDepartmentId: {ExistingDepartmentId}",
+                updateDto.Name,
+                id,
+                existing.Id);
             return new ApiResponse<DepartmentDto>(400, null, $"Department with name '{updateDto.Name}' already exists.");
         }
+
+        var oldName = department.Name;
+        var oldDescription = department.Description;
 
         department.Name = updateDto.Name;
         department.Description = updateDto.Description;
 
         _unitOfWork.DepartmentRepository.Update(department);
         await _unitOfWork.CompleteAsync();
+
+        _logger.LogInformation(
+            "Department updated successfully. DepartmentId: {DepartmentId}, Changes: {@Changes}",
+            id,
+            new { OldName = oldName, NewName = updateDto.Name, OldDescription = oldDescription, NewDescription = updateDto.Description });
 
         _cacheService.Remove($"Department:GetById:{id}");
         InvalidateAllDepartmentListCache();
@@ -128,11 +180,21 @@ public class DepartmentService : IDepartmentService
         var department = await _unitOfWork.DepartmentRepository.GetByIdAsync(id);
         if (department == null)
         {
+            _logger.LogWarning(
+                "Delete failed. Department not found. DepartmentId: {DepartmentId}",
+                id);
             return new ApiResponse<DeletedDto>(404, new DeletedDto { IsDeleted = false }, $"Department with id {id} not found.");
         }
 
+        var departmentName = department.Name;
+
         await _unitOfWork.DepartmentRepository.DeleteAsync(department);
         await _unitOfWork.CompleteAsync();
+
+        _logger.LogInformation(
+            "Department deleted successfully. DepartmentId: {DepartmentId}, DepartmentName: {DepartmentName}",
+            id,
+            departmentName);
 
         _cacheService.Remove($"Department:GetById:{id}");
         InvalidateAllDepartmentListCache();
@@ -143,5 +205,9 @@ public class DepartmentService : IDepartmentService
     private void InvalidateAllDepartmentListCache()
     {
         _cacheService.RemoveByPrefix("Department:GetAll:");
+        _logger.LogInformation(
+            "Cache invalidated for prefix {CachePrefix}. Reason: {Reason}",
+            "Department:GetAll:",
+            "Department data modified");
     }
 }
