@@ -1,14 +1,27 @@
+using Microsoft.Extensions.Hosting;
+using Serilog;
+
 namespace Innova.Infrastructure.Extensions;
 
 public static class InfrastructureExtensions
 {
-    public static void ConfigureInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
+    public static void ConfigureInfrastructureServices(this IServiceCollection services, IConfiguration configuration, IHostBuilder host)
     {
         services.ConfigureDatabaseServices(configuration);
         services.ConfigureIdentityServices();
         services.ConfigureExternalServices(configuration);
         services.ConfigureCachingServices();
         services.ConfigureMessagingServices();
+        ConfigureSerilogForHost(host);
+    }
+
+    private static void ConfigureSerilogForHost(IHostBuilder host)
+    {
+        host.UseSerilog((context, services, configuration) =>
+        {
+            configuration.ReadFrom.Configuration(context.Configuration)
+                .Enrich.FromLogContext();
+        });
     }
 
     private static void ConfigureDatabaseServices(this IServiceCollection services, IConfiguration configuration)

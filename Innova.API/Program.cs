@@ -6,10 +6,7 @@ using Hangfire;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Host.ConfigureSerilog();
-
-builder.Services.ConfigureInfrastructureServices(builder.Configuration);
+builder.Services.ConfigureInfrastructureServices(builder.Configuration,builder.Host);
 
 // Configure Hangfire
 builder.Services.AddHangfire(configuration => configuration
