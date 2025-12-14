@@ -6,13 +6,16 @@ namespace Innova.Application.Services.Implementations
     {
         private readonly IIdentityService _identityService;
         private readonly ICacheService _cacheService;
+        private readonly ILogger<UsersService> _logger;
 
         public UsersService(
             IIdentityService identityService,
-            ICacheService cacheService)
+            ICacheService cacheService,
+            ILogger<UsersService> logger)
         {
             _identityService = identityService;
             _cacheService = cacheService;
+            _logger = logger;
         }
 
         public async Task<ApiResponse<PaginationDto<UserDto>>> GetUsersPagedAsync(int pageIndex, int pageSize, string? sort)
@@ -22,6 +25,11 @@ namespace Innova.Application.Services.Implementations
             var cachedResult = _cacheService.Get<ApiResponse<PaginationDto<UserDto>>>(cacheKey);
             if (cachedResult != null)
             {
+                _logger.LogInformation(
+                    "Cache hit for users list. CacheKey: {CacheKey}, PageIndex: {PageIndex}, PageSize: {PageSize}",
+                    cacheKey,
+                    pageIndex,
+                    pageSize);
                 return cachedResult;
             }
 
@@ -42,6 +50,13 @@ namespace Innova.Application.Services.Implementations
             
             _cacheService.Set(cacheKey, response, _cacheService.SetMemoryCacheEntryOptions(TimeSpan.FromMinutes(5)));
 
+            _logger.LogInformation(
+                "Users list retrieved successfully. TotalCount: {TotalCount}, PageIndex: {PageIndex}, PageSize: {PageSize}, Sort: {Sort}",
+                totalCount,
+                pageIndex,
+                pageSize,
+                sort ?? "default");
+
             return response;
         }
 
@@ -51,11 +66,19 @@ namespace Innova.Application.Services.Implementations
             
             if (result)
             {
+                _logger.LogInformation(
+                    "User deleted successfully. UserId: {UserId}",
+                    userId);
+
                 InvalidateUserListCache();
                 return ApiResponse<DeletedDto>.Success(new DeletedDto { IsDeleted = true });
             }
             else
             {
+                _logger.LogWarning(
+                    "Delete failed. User not found or deletion failed. UserId: {UserId}",
+                    userId);
+
                 return new ApiResponse<DeletedDto>(404, new DeletedDto { IsDeleted = false }, "User not found or deletion failed");
             }
         }
@@ -73,6 +96,12 @@ namespace Innova.Application.Services.Implementations
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+
+                _logger.LogWarning(
+                    "User update validation failed. UserId: {UserId}, ValidationErrors: {@ValidationErrors}",
+                    userId,
+                    errors);
+
                 return new ApiResponse<UpdatedDto>(400, new UpdatedDto { IsUpdated = false }, string.Join("; ", errors));
             }
 
@@ -80,11 +109,20 @@ namespace Innova.Application.Services.Implementations
             
             if (result)
             {
+                _logger.LogInformation(
+                    "User updated successfully. UserId: {UserId}, Changes: {@Changes}",
+                    userId,
+                    new { FirstName = firstName, LastName = lastName, DateOfBirth = dateOfBirth });
+
                 InvalidateUserListCache();
                 return ApiResponse<UpdatedDto>.Success(new UpdatedDto { IsUpdated = true });
             }
             else
             {
+                _logger.LogWarning(
+                    "Update failed. User not found or update failed. UserId: {UserId}",
+                    userId);
+
                 return new ApiResponse<UpdatedDto>(404, new UpdatedDto { IsUpdated = false }, "User not found or update failed");
             }
         }
@@ -92,6 +130,10 @@ namespace Innova.Application.Services.Implementations
         private void InvalidateUserListCache()
         {
             _cacheService.RemoveByPrefix("User:GetPaged:");
+            _logger.LogInformation(
+                "Cache invalidated for prefix {CachePrefix}. Reason: {Reason}",
+                "User:GetPaged:",
+                "User data modified");
         }
     }
 }
