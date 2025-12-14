@@ -47,3 +47,4 @@ wwwroot/
 endpoints.md
 /Innova.API/assets
 /Innova.API/.config/dotnet-tools.json
+publish/

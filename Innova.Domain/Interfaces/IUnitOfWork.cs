@@ -8,5 +8,6 @@ public interface IUnitOfWork : IDisposable
     IConversationRepository ConversationRepository { get; }
     IMessageRepository MessageRepository { get; }
     IVoteRepository VoteRepository { get; }
+    INotificationRepository NotificationRepository { get; }
     Task<int> CompleteAsync();
 }
