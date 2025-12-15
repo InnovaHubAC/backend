@@ -6,17 +6,20 @@
         private readonly IIdentityService _identityService;
         private readonly IFileStorageService _fileStorageService;
         private readonly ILogger<IdeaService> _logger;
+        private readonly ICacheService _cacheService;
 
         public IdeaService(
             IUnitOfWork unitOfWork, 
             IIdentityService identityService, 
             IFileStorageService fileStorageService,
-            ILogger<IdeaService> logger)
+            ILogger<IdeaService> logger,
+            ICacheService cacheService)
         {
             _unitOfWork = unitOfWork;
             _identityService = identityService;
             _fileStorageService = fileStorageService;
             _logger = logger;
+            _cacheService = cacheService;
         }
 
         public async Task<ApiResponse<bool>> CreateIdeaAsync(CreateIdeaDto createIdeaDto)
@@ -42,6 +45,9 @@
                     createIdeaDto.DepartmentId,
                     createIdeaDto.Attachments?.Count ?? 0,
                     createIdeaDto.IsAnonymous);
+
+                InvalidateIdeaListCaches();
+                InvalidateUserIdeaCaches(createIdeaDto.AppUserId);
             }
 
             return result;
@@ -70,6 +76,10 @@
                     updateIdeaDto.AppUserId,
                     updateIdeaDto.Attachments?.Count ?? 0,
                     updateIdeaDto.RemovedAttachmentIds?.Count ?? 0);
+
+                InvalidateIdeaDetailsCache(updateIdeaDto.Id);
+                InvalidateIdeaListCaches();
+                InvalidateUserIdeaCaches(updateIdeaDto.AppUserId);
             }
 
             return result;
@@ -77,6 +87,19 @@
 
         public async Task<ApiResponse<IdeaDetailsDto>> GetIdeaDetailsAsync(int ideaId)
         {
+           
+            var cacheKey = $"Idea:Details:{ideaId}";
+
+            var cachedResult = _cacheService.Get<ApiResponse<IdeaDetailsDto>>(cacheKey);
+            if (cachedResult != null)
+            {
+                _logger.LogInformation(
+                    "Cache hit for idea details. CacheKey: {CacheKey}, IdeaId: {IdeaId}",
+                    cacheKey,
+                    ideaId);
+                return cachedResult;
+            }
+
             var idea = await _unitOfWork.IdeaRepository.GetByIdWithIncludesAsync(ideaId, new()
             {
                 x => x.Attachments!,
@@ -92,6 +115,13 @@
             }
 
             IdeaDetailsDto ideaDetailsDto = await CreateIdeaDetailsDtoAsync(ideaId, idea);
+            var response = ApiResponse<IdeaDetailsDto>.Success(ideaDetailsDto);
+
+            _cacheService.Set(
+                cacheKey,
+                response,
+                _cacheService.SetMemoryCacheEntryOptions(
+                    absoluteExpiration: TimeSpan.FromMinutes(3)));
 
             _logger.LogInformation(
                 "Idea details retrieved successfully. IdeaId: {IdeaId}, DepartmentId: {DepartmentId}, AttachmentCount: {AttachmentCount}",
@@ -99,7 +129,7 @@
                 idea.DepartmentId,
                 idea.Attachments?.Count ?? 0);
 
-            return ApiResponse<IdeaDetailsDto>.Success(ideaDetailsDto);
+            return response;
         }
 
         public async Task<ApiResponse<bool>> DeleteIdeaAsync(int ideaId, string userId)
@@ -129,6 +159,7 @@
             }
 
             var attachmentCount = idea.Attachments?.Count ?? 0;
+            var ownerId = idea.AppUserId;
 
             await _unitOfWork.IdeaRepository.DeleteAsync(idea);
             await _unitOfWork.CompleteAsync();
@@ -142,12 +173,29 @@
                 userId,
                 attachmentCount);
 
+            InvalidateIdeaDetailsCache(ideaId);
+            InvalidateIdeaListCaches();
+            InvalidateUserIdeaCaches(ownerId);
+
             return ApiResponse<bool>.Success(true);
         }
 
         public async Task<ApiResponse<PaginationDto<IdeaDetailsDto>>>
          GetIdeasByUserIdAsync(string userId, PaginationParams paginationParams)
         {
+            var cacheKey = $"Idea:UserIdeas:{userId}:Page{paginationParams.PageIndex}:Size{paginationParams.PageSize}";
+
+            // Try to get from cache
+            var cachedResult = _cacheService.Get<ApiResponse<PaginationDto<IdeaDetailsDto>>>(cacheKey);
+            if (cachedResult != null)
+            {
+                _logger.LogInformation(
+                    "Cache hit for user ideas. CacheKey: {CacheKey}, UserId: {UserId}",
+                    cacheKey,
+                    userId);
+                return cachedResult;
+            }
+
             // TODO: rewrite this to utilize the query syntax to avoid looping and making two queries
             var ideas = await _unitOfWork.IdeaRepository.ListAsync(
                 predicate: i => i.AppUserId == userId,
@@ -176,6 +224,15 @@
             var pagination = new PaginationDto<IdeaDetailsDto>(paginationParams.PageIndex,
              paginationParams.PageSize, ideas.Count, dtos);
 
+            var response = ApiResponse<PaginationDto<IdeaDetailsDto>>.Success(pagination);
+
+            _cacheService.Set(
+                cacheKey,
+                response,
+                _cacheService.SetMemoryCacheEntryOptions(
+                    absoluteExpiration: TimeSpan.FromMinutes(5),
+                    slidingExpiration: TimeSpan.FromMinutes(2)));
+
             _logger.LogInformation(
                 "User ideas retrieved successfully. UserId: {UserId}, IdeaCount: {IdeaCount}, PageIndex: {PageIndex}, PageSize: {PageSize}",
                 userId,
@@ -183,11 +240,26 @@
                 paginationParams.PageIndex,
                 paginationParams.PageSize);
 
-            return ApiResponse<PaginationDto<IdeaDetailsDto>>.Success(pagination);
+            return response;
         }
 
         public async Task<ApiResponse<PaginationDto<IdeaDetailsDto>>> GetAllIdeasAsync(PaginationParams paginationParams)
         {
+            var cacheKey = $"Idea:List:Page{paginationParams.PageIndex}:Size{paginationParams.PageSize}:Sort{paginationParams.Sort ?? "default"}";
+
+            // Try to get from cache
+            var cachedResult = _cacheService.Get<ApiResponse<PaginationDto<IdeaDetailsDto>>>(cacheKey);
+            if (cachedResult != null)
+            {
+                _logger.LogInformation(
+                    "Cache hit for idea list. CacheKey: {CacheKey}, PageIndex: {PageIndex}, PageSize: {PageSize}",
+                    cacheKey,
+                    paginationParams.PageIndex,
+                    paginationParams.PageSize);
+                return cachedResult;
+            }
+
+            // Cache miss - fetch from database
             var (ideas, totalCount) = await _unitOfWork.IdeaRepository.GetAllIdeasPagedAsync(
                 paginationParams.PageIndex,
                 paginationParams.PageSize,
@@ -207,6 +279,15 @@
                 totalCount,
                 ideaDetailsDtos);
 
+            var response = ApiResponse<PaginationDto<IdeaDetailsDto>>.Success(pagination);
+
+            _cacheService.Set(
+                cacheKey,
+                response,
+                _cacheService.SetMemoryCacheEntryOptions(
+                    absoluteExpiration: TimeSpan.FromMinutes(3),
+                    slidingExpiration: TimeSpan.FromMinutes(1)));
+
             _logger.LogInformation(
                 "All ideas retrieved successfully. TotalCount: {TotalCount}, PageIndex: {PageIndex}, PageSize: {PageSize}, Sort: {Sort}",
                 totalCount,
@@ -214,7 +295,7 @@
                 paginationParams.PageSize,
                 paginationParams.Sort ?? "default");
 
-            return ApiResponse<PaginationDto<IdeaDetailsDto>>.Success(pagination);
+            return response;
         }
 
         private async Task<ApiResponse<bool>> ValidateCreateIdeaAsync(CreateIdeaDto createIdeaDto)
@@ -484,6 +565,40 @@
                 UserVoteType = userVoteType
             };
             return ideaDetailsDto;
+        }
+
+        private void InvalidateIdeaDetailsCache(int ideaId)
+        {
+            var cacheKey = $"Idea:Details:{ideaId}";
+            _cacheService.Remove(cacheKey);
+
+            _logger.LogInformation(
+                "Cache invalidated for idea details. IdeaId: {IdeaId}, Reason: {Reason}",
+                ideaId,
+                "Idea data modified");
+        }
+
+        // Invalidates all idea list caches (all pages, sizes, and sorts)
+        private void InvalidateIdeaListCaches()
+        {
+            _cacheService.RemoveByPrefix("Idea:List:");
+
+            _logger.LogInformation(
+                "Cache invalidated for prefix {CachePrefix}. Reason: {Reason}",
+                "Idea:List:",
+                "Idea list data modified");
+        }
+
+        // Invalidates all user-specific idea caches for a given user
+        private void InvalidateUserIdeaCaches(string userId)
+        {
+            _cacheService.RemoveByPrefix($"Idea:UserIdeas:{userId}:");
+
+            _logger.LogInformation(
+                "Cache invalidated for user ideas. UserId: {UserId}, CachePrefix: {CachePrefix}, Reason: {Reason}",
+                userId,
+                $"Idea:UserIdeas:{userId}:",
+                "User idea data modified");
         }
     }
 }
