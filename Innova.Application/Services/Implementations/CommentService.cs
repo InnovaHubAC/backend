@@ -3,17 +3,19 @@ namespace Innova.Application.Services.Implementations;
 public class CommentService : ICommentService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<CommentService> _logger;
     private readonly ICacheService _cacheService;
 
     public CommentService(
         IUnitOfWork unitOfWork, 
         ILogger<CommentService> logger,
-        ICacheService cacheService)
+        ICacheService cacheService,INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
         _cacheService = cacheService;
+        _notificationService = notificationService;
     }
 
     public async Task<ApiResponse<IEnumerable<CommentDto>>> GetCommentsByIdeaIdAsync(int ideaId)
@@ -92,6 +94,12 @@ public class CommentService : ICommentService
 
     public async Task<ApiResponse<CommentDto>> CreateCommentAsync(int ideaId, CreateCommentDto createCommentDto, string userId)
     {
+        var idea = await _unitOfWork.IdeaRepository.GetByIdAsync(ideaId);
+        if (idea == null)
+        {
+            return ApiResponse<CommentDto>.Fail(404, "Idea not found");
+        }
+
         var comment = createCommentDto.Adapt<Comment>();
         comment.IdeaId = ideaId;
         comment.AppUserId = userId;
@@ -106,7 +114,8 @@ public class CommentService : ICommentService
             userId);
 
         InvalidateCommentCacheForIdea(ideaId);
-        
+        // Send notification to idea owner
+        await _notificationService.PublishIdeaCommentNotificationAsync(idea, comment, userId);
         return ApiResponse<CommentDto>.Success(comment.Adapt<CommentDto>());
     }
 
@@ -120,6 +129,12 @@ public class CommentService : ICommentService
                 parentId,
                 userId);
             return ApiResponse<CommentDto>.Fail(404, "Parent comment not found");
+        }
+
+        var idea = await _unitOfWork.IdeaRepository.GetByIdAsync(parentComment.IdeaId);
+        if (idea == null)
+        {
+            return ApiResponse<CommentDto>.Fail(404, "Idea not found");
         }
 
         var comment = createCommentDto.Adapt<Comment>();
@@ -139,6 +154,9 @@ public class CommentService : ICommentService
 
         InvalidateRepliesCache(parentId);
         InvalidateCommentCacheForIdea(parentComment.IdeaId);
+
+        // Send notification to idea owner (replies also notify the idea owner)
+        await _notificationService.PublishIdeaCommentNotificationAsync(idea, comment, userId);
 
         return ApiResponse<CommentDto>.Success(comment.Adapt<CommentDto>());
     }

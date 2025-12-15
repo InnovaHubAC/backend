@@ -47,4 +47,5 @@ wwwroot/
 endpoints.md
 /Innova.API/assets
 /Innova.API/.config/dotnet-tools.json
+publish/
 /Innova.API/Logs/log-20251214.txt

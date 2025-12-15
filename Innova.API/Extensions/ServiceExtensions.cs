@@ -1,4 +1,5 @@
 using Innova.Application.MappingConfig;
+using Innova.API.Services;
 
 namespace Innova.API.Extensions;
 
@@ -14,6 +15,8 @@ public static class ServiceExtensions
         services.AddScoped<IUsersService, UsersService>();
         services.AddScoped<IMessagingService, MessagingService>();
         services.AddScoped<IVoteService, VoteService>();
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<INotificationHubClient, NotificationHubClient>();
         
         // Add Mapster configuration
         MappingConfig.ConfigureMappings();

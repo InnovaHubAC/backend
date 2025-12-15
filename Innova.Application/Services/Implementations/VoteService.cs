@@ -3,12 +3,14 @@ namespace Innova.Application.Services.Implementations;
 public class VoteService : IVoteService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<VoteService> _logger;
 
-    public VoteService(IUnitOfWork unitOfWork, ILogger<VoteService> logger)
+    public VoteService(IUnitOfWork unitOfWork, ILogger<VoteService> logger,INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _notificationService = notificationService;
     }
 
     public async Task<ApiResponse<VoteDto>> CastVoteAsync(int ideaId, CreateVoteDto createVoteDto, string userId)
@@ -53,6 +55,8 @@ public class VoteService : IVoteService
                 userId,
                 new { OldVoteType = oldVoteType, NewVoteType = createVoteDto.VoteType });
 
+            // TODO: may to make it as a background job
+            await _notificationService.PublishIdeaVoteNotificationAsync(idea, existingVote, userId);
             return ApiResponse<VoteDto>.Success(existingVote.Adapt<VoteDto>());
         }
 
@@ -66,6 +70,8 @@ public class VoteService : IVoteService
 
         await _unitOfWork.VoteRepository.AddAsync(vote);
         await _unitOfWork.CompleteAsync();
+        // TODO: may to make it as a background job
+        await _notificationService.PublishIdeaVoteNotificationAsync(idea, vote, userId);
 
         _logger.LogInformation(
             "Vote cast successfully. VoteId: {VoteId}, IdeaId: {IdeaId}, UserId: {UserId}, VoteType: {VoteType}",
