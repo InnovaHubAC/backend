@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Notification Hub Tester</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f7f7f9; }
+        h1 { margin-bottom: 0.5rem; }
+        .container { max-width: 960px; margin: 0 auto; }
+        .card { background: #fff; border-radius: 8px; border: 1px solid #e0e0e0; padding: 20px; margin-bottom: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        label { display: block; font-weight: 600; margin-bottom: 6px; }
+        input[type="text"], input[type="number"], textarea { width: 100%; padding: 10px; border: 1px solid #cfd3d8; border-radius: 6px; font-size: 14px; }
+        textarea { resize: vertical; min-height: 60px; }
+        button { cursor: pointer; border: none; border-radius: 6px; padding: 10px 18px; font-size: 14px; font-weight: 600; color: #fff; background: #2563eb; margin-right: 10px; margin-top: 10px; }
+        button.secondary { background: #64748b; }
+        button.danger { background: #dc2626; }
+        button:disabled { background: #94a3b8; cursor: not-allowed; }
+        #status { padding: 10px; border-radius: 6px; font-weight: 600; }
+        #status.connected { background: #dcfce7; color: #16a34a; border: 1px solid #86efac; }
+        #status.disconnected { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+        #log, #notifications { max-height: 260px; overflow-y: auto; background: #0f172a; color: #cbd5f5; padding: 12px; border-radius: 6px; font-family: Consolas, monospace; font-size: 13px; }
+        .notification-item { background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; margin-bottom: 10px; }
+        .notification-item.unread { border-color: #2563eb; box-shadow: inset 3px 0 0 #2563eb; }
+        .grid { display: grid; gap: 16px; }
+        .grid.two { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+        .muted { color: #64748b; font-size: 13px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1> SignalR Notification Tester</h1>
+    <p class="muted">Paste a valid JWT token, connect to <code>/hubs/notifications</code>, and monitor real-time updates while exercising the REST endpoints.</p>
+
+    <div class="card">
+        <div id="status" class="disconnected">Disconnected</div>
+        <label for="apiBase">API Base URL</label>
+        <input type="text" id="apiBase" value="https://localhost:5001" placeholder="https://localhost:7001">
+
+        <label for="token">JWT Token</label>
+        <textarea id="token" placeholder="Paste bearer token here"></textarea>
+
+        <div>
+            <button id="connectBtn" onclick="connect()">Connect</button>
+            <button id="disconnectBtn" class="secondary" onclick="disconnect()" disabled>Disconnect</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>REST Helpers</h3>
+        <div class="grid two">
+            <div>
+                <label for="pageSize">Page Size</label>
+                <input type="number" id="pageSize" min="1" max="50" value="10">
+                <label for="pageNumber">Page</label>
+                <input type="number" id="pageNumber" min="1" value="1">
+                <button class="secondary" onclick="loadNotifications()" id="loadBtn" disabled>Load Notifications</button>
+            </div>
+            <div>
+                <label for="notificationId">Notification Id</label>
+                <input type="number" id="notificationId" min="1" placeholder="e.g. 5">
+                <button class="secondary" onclick="markAsRead()" id="markBtn" disabled>Mark As Read</button>
+                <button class="secondary" onclick="markAllAsRead()" id="markAllBtn" disabled>Mark All As Read</button>
+                <button class="secondary" onclick="fetchUnreadCount()" id="countBtn" disabled>Fetch Unread Count</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Real-time Event Log</h3>
+        <button class="secondary" onclick="clearLog()">Clear Log</button>
+        <pre id="log"></pre>
+    </div>
+
+    <div class="card">
+        <h3>Latest Notifications</h3>
+        <div id="notifications"></div>
+    </div>
+</div>
+
+<script>
+    let connection = null;
+    const state = { notifications: [], unreadCount: 0 };
+
+    function qs(id) { return document.getElementById(id); }
+
+    function appendLog(message, data) {
+        const logElement = qs('log');
+        const time = new Date().toLocaleTimeString();
+        const formatted = data ? `${time} :: ${message} :: ${JSON.stringify(data, null, 2)}` : `${time} :: ${message}`;
+        logElement.textContent = `${formatted}\n${logElement.textContent}`;
+    }
+
+    function setConnectionState(isConnected) {
+        const status = qs('status');
+        status.className = isConnected ? 'connected' : 'disconnected';
+        status.textContent = isConnected ? 'Connected to notification hub' : 'Disconnected';
+        qs('connectBtn').disabled = isConnected;
+        qs('disconnectBtn').disabled = !isConnected;
+        ['loadBtn','markBtn','markAllBtn','countBtn'].forEach(id => qs(id).disabled = !isConnected);
+    }
+
+    function renderNotifications() {
+        const list = qs('notifications');
+        if (state.notifications.length === 0) {
+            list.innerHTML = '<p class="muted">No notifications loaded yet.</p>';
+            return;
+        }
+
+        list.innerHTML = state.notifications.map(n => {
+            const created = new Date(n.createdAt).toLocaleString();
+            const readAt = n.readAt ? new Date(n.readAt).toLocaleString() : '–';
+            return `
+                <div class="notification-item ${n.isRead ? '' : 'unread'}">
+                    <strong>${n.title}</strong>
+                    <div class="muted">${created}</div>
+                    <p>${n.message}</p>
+                    <div class="muted">Read: ${readAt}</div>
+                    <div class="muted">Type: ${n.notificationType} • Idea: ${n.ideaId ?? 'n/a'} • Vote: ${n.voteId ?? 'n/a'}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function getAuthHeaders() {
+        const token = qs('token').value.trim();
+        if (!token) {
+            throw new Error('Token is required for REST calls.');
+        }
+        return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+    }
+
+    async function loadNotifications() {
+        try {
+            const base = qs('apiBase').value.trim();
+            const page = parseInt(qs('pageNumber').value, 10);
+            const size = parseInt(qs('pageSize').value, 10);
+            const response = await fetch(`${base}/api/notifications?page=${page}&pageSize=${size}`, {
+                headers: getAuthHeaders()
+            });
+            const payload = await response.json();
+            appendLog('Fetched notifications', payload);
+            state.notifications = payload.data ?? [];
+            renderNotifications();
+        } catch (err) {
+            appendLog('Failed to load notifications', { error: err.message });
+        }
+    }
+
+    async function fetchUnreadCount() {
+        try {
+            const base = qs('apiBase').value.trim();
+            const response = await fetch(`${base}/api/notifications/unread-count`, {
+                headers: getAuthHeaders()
+            });
+            const payload = await response.json();
+            appendLog('Unread count', payload);
+            state.unreadCount = payload.data ?? 0;
+        } catch (err) {
+            appendLog('Failed to fetch unread count', { error: err.message });
+        }
+    }
+
+    async function markAsRead() {
+        const id = parseInt(qs('notificationId').value, 10);
+        if (!id) {
+            appendLog('Notification id is required');
+            return;
+        }
+        try {
+            const base = qs('apiBase').value.trim();
+            const response = await fetch(`${base}/api/notifications/${id}/read`, {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
+            const payload = await response.json();
+            appendLog(`Marked notification ${id} as read`, payload);
+            await loadNotifications();
+        } catch (err) {
+            appendLog('Failed to mark notification as read', { error: err.message });
+        }
+    }
+
+    async function markAllAsRead() {
+        try {
+            const base = qs('apiBase').value.trim();
+            const response = await fetch(`${base}/api/notifications/read-all`, {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
+            const payload = await response.json();
+            appendLog('Marked all notifications as read', payload);
+            await loadNotifications();
+        } catch (err) {
+            appendLog('Failed to mark all notifications as read', { error: err.message });
+        }
+    }
+
+    async function connect() {
+        const token = qs('token').value.trim();
+        const base = qs('apiBase').value.trim();
+
+        if (!token) {
+            appendLog('Token is required to connect');
+            return;
+        }
+        if (!base) {
+            appendLog('API base URL is required');
+            return;
+        }
+        
+
+        // Initialize SignalR connection to set the userId for both chat and notifications hubs
+        connection = new signalR.HubConnectionBuilder()
+            .withUrl(`${base}/hubs/notifications`, {
+                accessTokenFactory: () => token
+            })
+            .withAutomaticReconnect()
+            .configureLogging(signalR.LogLevel.Information)
+            .build();
+
+        connection.on('NotificationReceived', notification => {
+            console.log('NotificationReceived', notification);
+            appendLog('Realtime notification received', notification);
+            state.notifications = [notification, ...state.notifications].slice(0, 50);
+            renderNotifications();
+        });
+
+        connection.onclose(error => {
+            appendLog('Connection closed', error ? { error: error.message } : null);
+            setConnectionState(false);
+        });
+
+        connection.onreconnected(() => {
+            appendLog('Reconnected to hub');
+            setConnectionState(true);
+        });
+
+        connection.onreconnecting(error => {
+            appendLog('Attempting to reconnect', error ? { error: error.message } : null);
+            setConnectionState(false);
+        });
+
+        try {
+            await connection.start();
+            appendLog('Connected to hub');
+            setConnectionState(true);
+            await Promise.all([loadNotifications(), fetchUnreadCount()]);
+        } catch (err) {
+            appendLog('Failed to connect', { error: err.message });
+        }
+    }
+
+    async function disconnect() {
+        if (!connection) {
+            return;
+        }
+        try {
+            await connection.stop();
+            appendLog('Disconnected from hub');
+        } catch (err) {
+            appendLog('Error while disconnecting', { error: err.message });
+        } finally {
+            setConnectionState(false);
+        }
+    }
+
+    function clearLog() {
+        qs('log').textContent = '';
+    }
+</script>
+</body>
+</html>

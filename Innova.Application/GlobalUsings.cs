@@ -14,6 +14,7 @@ global using Innova.Application.DTOs.Comment;
 global using Innova.Application.DTOs.Messaging;
 global using Innova.Application.DTOs.Vote;
 global using Innova.Application.DTOs.Attachment;
+global using Innova.Application.DTOs.Notification;
 global using System.Security.Claims;
 global using Innova.Application.DTOs.Auth;
 global using Innova.Application.Validations.Auth;

@@ -16,25 +16,6 @@ public class MessagesController : ControllerBase
         _messagingService = messagingService;
     }
 
-    [HttpPost("send")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<MessageDto>), (int)HttpStatusCode.OK)]
-    [ProducesResponseType(typeof(ApiResponse<MessageDto>), (int)HttpStatusCode.NotFound)]
-    [ProducesResponseType(typeof(ApiResponse<MessageDto>), (int)HttpStatusCode.Unauthorized)]
-    public async Task<ActionResult<ApiResponse<MessageDto>>> SendMessage([FromBody] SendMessageDto sendMessageDto)
-    {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-
-        var result = await _messagingService.SendMessageAsync(userId, sendMessageDto);
-        return result.StatusCode switch
-        {
-            200 => Ok(result),
-            404 => NotFound(result),
-            _ => StatusCode(result.StatusCode, result)
-        };
-    }
-
-
     [HttpGet("conversations")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<IEnumerable<ConversationDto>>), (int)HttpStatusCode.OK)]

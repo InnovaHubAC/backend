@@ -24,3 +24,5 @@ global using System.Security.Cryptography;
 global using System.Text;
 global using Microsoft.AspNetCore.Http;
 global using Microsoft.AspNetCore.SignalR;
+global using Innova.Application.DTOs.Notification;
+global using Innova.Application.Services.Interfaces;

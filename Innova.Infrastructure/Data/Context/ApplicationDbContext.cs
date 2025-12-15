@@ -22,4 +22,5 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
     public DbSet<Conversation> Conversations { get; set; } = null!;
     public DbSet<Message> Messages { get; set; } = null!;
     public DbSet<Vote> Votes { get; set; } = null!;
+    public DbSet<Notification> Notifications { get; set; } = null!;
 }
