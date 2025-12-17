@@ -20,3 +20,4 @@ global using Innova.Application.DTOs.Auth;
 global using Innova.Application.Validations.Auth;
 global using Innova.Application.DTOs.Idea;
 global using Innova.Application.Validations.Idea;
+global using Microsoft.Extensions.Logging;
